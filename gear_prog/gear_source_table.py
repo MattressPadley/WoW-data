@@ -109,5 +109,5 @@ for (row, col), cell in table.get_celld().items():
 plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
 # Save the figure without any padding
-plt.savefig("gear_source_table.png", dpi=600, bbox_inches="tight", pad_inches=0)
+plt.savefig("img/gear_source_table.png", dpi=600, bbox_inches="tight", pad_inches=0)
 plt.close()

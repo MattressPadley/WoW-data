@@ -66,5 +66,5 @@ for i, row in df_ordered.iterrows():
 
 # Save the chart as an image
 plt.tight_layout()
-plt.savefig('gear_upgrade_chart.png', dpi=600)
+plt.savefig("img/gear_upgrade_chart.png", dpi=600)
 plt.close()

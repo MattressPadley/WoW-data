@@ -105,9 +105,9 @@ def pad_image_to_width(image, target_width, background_color=(255, 255, 255)):
 # Example usage
 if __name__ == '__main__':
     combine_images(
-        "gear_upgrade_chart.png",
-        "gear_source_table.png",
-        "combined_report.png",
+        "img/gear_upgrade_chart.png",
+        "img/gear_source_table.png",
+        "img/combined_report.png",
         orientation="horizontal",
         background_color=colors["Base"],
     )
