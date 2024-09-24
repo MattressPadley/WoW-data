@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "wow"
+version = "0.1.0"
+description = ""
+authors = ["Matt Hadley <hello@matthadley.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+matplotlib = "^3.9.2"
+pandas = "^2.2.3"
+dataframe-image = "^0.2.4"
+pillow = "^10.4.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
