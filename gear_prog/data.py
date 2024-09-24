@@ -101,15 +101,15 @@ gear_source_data = {
         "Required Crest": "Weathered Crest",
     },
     "Crafted (Runed)": {
-        "Source": ["Crafting Order"],
+        "Source": ["Crafting Orders"],
         "Required Crest": "Runed Crest",
     },
     "Crafted (Weathered)": {
-        "Source": ["Crafting Order"],
+        "Source": ["Crafting Orders"],
         "Required Crest": "Weathered Crest",
     },
     "Crafted (Gilded)": {
-        "Source": ["Crafting Order"],
+        "Source": ["Crafting Orders"],
         "Required Crest": "Gilded Crest",
     },
 }
