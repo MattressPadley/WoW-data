@@ -107,7 +107,7 @@ if __name__ == '__main__':
     combine_images(
         "img/gear_upgrade_chart.png",
         "img/gear_source_table.png",
-        "img/combined_report.png",
+        "img/gear_prog_report.png",
         orientation="horizontal",
         background_color=colors["Base"],
     )
