@@ -68,7 +68,7 @@ gear_source_data = {
             "Mythic Keystone 9-10 Great Vault",
             "Heroic Raid",
         ],
-        "Required Crest": "Ruined Crest / Gilded Crest",
+        "Required Crest": "Ruined Crest\nGilded Crest",
     },
     "Champion": {
         "Source": [
@@ -80,7 +80,7 @@ gear_source_data = {
             "Normal Raid",
             "Mythic 0-6 Great Vault",
         ],
-        "Required Crest": "Carved Crest / Runed Crest",
+        "Required Crest": "Carved Crest\nRuned Crest",
     },
     "Veteran": {
         "Source": [
@@ -90,7 +90,7 @@ gear_source_data = {
             "Heroic Dungeons LFR Raid Bosses",
             "Heroic BG Great Vault",
         ],
-        "Required Crest": "Weathered Crest / Carved Crest",
+        "Required Crest": "Weathered Crest\nCarved Crest",
     },
     "Adventurer": {
         "Source": ["World Quests", "Delve Tiers 3-4", "Heroic Dungeons"],
