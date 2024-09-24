@@ -28,13 +28,13 @@ colors = {
 }
 
 custom_track_colors = {
-    'Normal Dungeon': colors['Blue'],
-    'Explorer': colors['Sapphire'],
-    'Adventurer': colors['Sky'],
-    'Veteran': colors['Teal'],
-    'Champion': colors['Green'],
-    'Hero': colors['Yellow'],
-    'Myth': colors['Peach'],
+    'Normal Dungeon': colors['Lavender'],
+    'Explorer': colors['Blue'],
+    'Adventurer': colors['Sapphire'],
+    'Veteran': colors['Sky'],
+    'Champion': colors['Teal'],
+    'Hero': colors['Green'],
+    'Myth': colors['Yellow'],
     'Base Spark Crafted': colors['Maroon'],
     'Crafted (Weathered)': colors['Red'],
     'Crafted (Runed)': colors['Mauve'],
