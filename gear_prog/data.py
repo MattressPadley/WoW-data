@@ -52,9 +52,7 @@ gear_score_data = {
     'Base Spark Crafted': {'Starting Item Level': 593, 'Max Item Level': 606},
     'Crafted (Weathered)': {'Starting Item Level': 577, 'Max Item Level': 590},
     'Crafted (Runed)': {'Starting Item Level': 606, 'Max Item Level': 619},
-    'Crafted (Gilded)': {'Starting Item Level': 623, 'Max Item Level': 636},
-    'PvP (Honor)': {'Starting Item Level': 558, 'Max Item Level': 580},
-
+    'Crafted (Gilded)': {'Starting Item Level': 623, 'Max Item Level': 636}
 }
 
 gear_source_data = {
