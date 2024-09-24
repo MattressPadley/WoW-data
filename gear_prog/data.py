@@ -53,6 +53,8 @@ gear_score_data = {
     'Crafted (Weathered)': {'Starting Item Level': 577, 'Max Item Level': 590},
     'Crafted (Runed)': {'Starting Item Level': 606, 'Max Item Level': 619},
     'Crafted (Gilded)': {'Starting Item Level': 623, 'Max Item Level': 636},
+    'PvP (Honor)': {'Starting Item Level': 558, 'Max Item Level': 580},
+
 }
 
 gear_source_data = {
@@ -79,6 +81,7 @@ gear_source_data = {
             "Mythic Keystone 2-6",
             "Normal Raid",
             "Mythic 0-6 Great Vault",
+            "PvP (Conquest)",
         ],
         "Required Crest": "Carved Crest\nRuned Crest",
     },
@@ -93,11 +96,16 @@ gear_source_data = {
         "Required Crest": "Weathered Crest\nCarved Crest",
     },
     "Adventurer": {
-        "Source": ["World Quests", "Delve Tiers 3-4", "Heroic Dungeons"],
+        "Source": ["World Quests", 
+                   "Delve Tiers 3-4", 
+                   "Heroic Dungeons", 
+                   "PvP (World Quests)"],
         "Required Crest": "Weathered Crest",
     },
     "Explorer": {
-        "Source": ["Delve Tiers 1-2", "Outdoor Activities"],
+        "Source": ["Delve Tiers 1-2", 
+                   "Outdoor Activities",
+                   "PvP (Honor)"],
         "Required Crest": "Weathered Crest",
     },
     "Crafted (Runed)": {
