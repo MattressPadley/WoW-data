@@ -27,22 +27,8 @@ df = pd.DataFrame(
     {"Track": tracks, "Source": sources, "Required Crest": required_crests}
 )
 
-# Calculate maximum character length in each column
-max_char_per_col = []
-for col in df.columns:
-    max_len = (
-        df[col].apply(lambda x: max([len(line) for line in str(x).split("\n")])).max()
-    )
-    max_char_per_col.append(max_len)
-
-# Set proportional column widths based on max character lengths
-total_chars = sum(max_char_per_col)
-col_widths = [max_len / total_chars for max_len in max_char_per_col]
-
 # Adjust the figure width accordingly
-fig_width = total_chars * 0.09  # Adjust the multiplier as needed
-fig_height = len(df) * 0.5
-fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+fig, ax = plt.subplots(figsize=(5, 6))
 ax.axis("off")
 
 # Create table with adjusted bounding box to fit the table snugly
@@ -57,13 +43,7 @@ table = ax.table(
 # Set font sizes
 table.auto_set_font_size(False)
 table.set_fontsize(9)
-
-
-# Adjust column widths
-for i, width in enumerate(col_widths):
-    for key, cell in table.get_celld().items():
-        if key[1] == i:
-            cell.set_width(width)
+table.auto_set_column_width([0,1,2,3])
 
 # Get max number of lines in any cell per row to adjust row heights
 max_lines_per_row = []
@@ -77,7 +57,7 @@ for (row, col), cell in table.get_celld().items():
     cell.PAD = 0.05
     if row == 0:
         # Header row
-        cell.set_height(0.25)
+        cell.set_height(0.1)
         cell.set_text_props(
             fontfamily=header_font,
             fontsize=12,
@@ -90,12 +70,13 @@ for (row, col), cell in table.get_celld().items():
         cell.set_edgecolor("none")
     else:
         max_lines = max_lines_per_row[row - 1]
-        ch = 0.2 * max_lines
+        ch = 0.05 * max_lines
         cell.set_height(ch)
         cell.set_text_props(
             fontfamily=header_font,
             color=row_text_color,
             ha="left",
+            va="center",
         )
         # Get the track name for this row
         track_name = df.iloc[row - 1]["Track"]
