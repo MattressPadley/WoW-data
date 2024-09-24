@@ -56,7 +56,8 @@ table = ax.table(
 
 # Set font sizes
 table.auto_set_font_size(False)
-table.set_fontsize(10)
+table.set_fontsize(9)
+
 
 # Adjust column widths
 for i, width in enumerate(col_widths):
@@ -73,27 +74,28 @@ for index, row in df.iterrows():
 # Set cell properties
 for (row, col), cell in table.get_celld().items():
     # Remove extra padding
-    cell.PAD = 0.1
+    cell.PAD = 0.05
     if row == 0:
         # Header row
+        cell.set_height(0.25)
         cell.set_text_props(
             fontfamily=header_font,
+            fontsize=12,
             color=header_text_color,
             weight="bold",
             ha="left",
             va="center",
-            linespacing=1,
         )
         cell.set_facecolor(header_background_color)
         cell.set_edgecolor("none")
     else:
-        # Data cells
+        max_lines = max_lines_per_row[row - 1]
+        ch = 0.2 * max_lines
+        cell.set_height(ch)
         cell.set_text_props(
             fontfamily=header_font,
             color=row_text_color,
             ha="left",
-            va="top",
-            linespacing=1,
         )
         # Get the track name for this row
         track_name = df.iloc[row - 1]["Track"]
@@ -101,10 +103,7 @@ for (row, col), cell in table.get_celld().items():
         background_color = custom_track_colors.get(track_name, "#FFFFFF")
         cell.set_facecolor(background_color)
         cell.set_edgecolor("none")
-        # Adjust row height based on content
-        max_lines = max_lines_per_row[row - 1]
-        # Adjust the height per line; tweak the multiplier if necessary
-        # cell.set_height(0.05 * max_lines + 0.05)
+
 
 # Remove any white border or extra space around the table
 plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
