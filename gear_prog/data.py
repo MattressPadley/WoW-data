@@ -68,7 +68,7 @@ gear_source_data = {
             "Mythic Keystone 7-9 Great Vault",
             "Heroic Raid",
         ],
-        "Required Crest": "Ruined Crest\nGilded Crest",
+        "Required Crest": "Runed Crest\nGilded Crest",
     },
     "Champion": {
         "Source": [
