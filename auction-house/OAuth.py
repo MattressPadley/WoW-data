@@ -1,32 +1,66 @@
 import requests
 import os
-from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
+from flask import Flask, request, redirect
+import uuid
 
 load_dotenv()
 
-# Replace these values with your client ID, client secret, and token URL
-client_id = os.getenv('BNET_CLIENT_ID')
-client_secret = os.getenv('BNET_CLIENT_SECRET')
-token_url = "https://oauth.battle.net/token"
+client_id = os.getenv("BNET_CLIENT_ID")
+client_secret = os.getenv("BNET_CLIENT_SECRET")
 
-def get_oauth_token(client_id, client_secret, token_url):
-    auth = HTTPBasicAuth(client_id, client_secret)
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    data = {'grant_type': 'client_credentials'}
 
-    response = requests.post(token_url, auth=auth, headers=headers, data=data)
+def save_token(token):
+    lines = []
+    with open(".env", "r") as env_file:
+        lines = env_file.readlines()
 
-    if response.status_code == 200:
-        return response.json().get('access_token')
-    else:
-        raise Exception(f"Failed to obtain token: {response.status_code} {response.text}")
+    with open(".env", "w") as env_file:
+        token_written = False
+        for line in lines:
+            if line.startswith("BNET_ACCESS_TOKEN="):
+                env_file.write(f"BNET_ACCESS_TOKEN={token}\n")
+                token_written = True
+            else:
+                env_file.write(line)
+        if not token_written:
+            env_file.write(f"BNET_ACCESS_TOKEN={token}\n")
+
+
+app = Flask(__name__)
+
+
+@app.route("/auth")
+def auth():
+    # This route initiates the authentication process
+    redirect_uri = "http://localhost:8000/callback"
+    scope = ""
+    state = str(uuid.uuid4())
+    auth_url = f"https://oauth.battle.net/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope={scope}&state={state}"
+    return redirect(auth_url)
+
+
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+    token = request_token_from_bnet(code, client_id, client_secret)
+    save_token(token)
+    return "Authentication successful!"
+
+
+def request_token_from_bnet(code, client_id, client_secret):
+    url = "https://oauth.battle.net/token"
+    payload = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": "http://localhost:8000/callback",
+    }
+    response = requests.post(url, data=payload)
+    response_data = response.json()
+    return response_data["access_token"]
+
 
 if __name__ == "__main__":
-    try:
-        token = get_oauth_token(client_id, client_secret, token_url)
-        print(f"Access Token: {token}")
-        with open('.env', 'a') as env_file:
-            env_file.write(f'\nBNET_ACCESS_TOKEN={token}')
-    except Exception as e:
-        print(f"Error: {e}")
+    app.run(debug=True, port=8000)

@@ -1,26 +1,43 @@
-import os
 import requests
+import os
 from dotenv import load_dotenv
+import pandas as pd
 
-# Load environment variables from .env file
+
 load_dotenv()
 
-# Get the OAuth token from the environment variable
-oauth_token = os.getenv('BNET_ACCESS_TOKEN')
 
-# Define the API endpoint
-api_endpoint = 'https://us.api.blizzard.com/data/wow/auctions/commodities'
+def get_ah_commodities_data(access_token, region, namespace="dynamic-us"):
+    url = f"https://{region}.api.blizzard.com/data/wow/auctions/commodities"
+    params = {
+        "namespace": namespace,
+        "locale": "en_US",  # You can change this to any other supported locale
+        "access_token": access_token,
+    }
 
-# Set up the headers with the OAuth token
-headers = {
-    'Authorization': f'Bearer {oauth_token}'
-}
+    response = requests.get(url, params=params)
 
-# Make the API request
-response = requests.get(api_endpoint, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"API request failed: {response.status_code}, {response.text}")
 
-# Check the response status and print the result
-if response.status_code == 200:
-    print('Success:', response.json())
-else:
-    print('Error:', response.status_code, response.text)
+
+if __name__ == "__main__":
+    # Get the access token
+    try:
+        token = os.getenv("BNET_ACCESS_TOKEN")
+        # Fetch WoW instance data
+        commodites_data = get_ah_commodities_data(token, "us")
+        # Convert the commodities data to a DataFrame
+        commodities_df = pd.DataFrame(commodites_data['auctions'])
+
+        # Print the DataFrame as a table
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+        pd.set_option('display.max_colwidth', None)
+        print(commodities_df)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
