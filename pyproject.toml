@@ -11,6 +11,7 @@ matplotlib = "^3.9.2"
 pandas = "^2.2.3"
 dataframe-image = "^0.2.4"
 pillow = "^10.4.0"
+python-dotenv = "^1.0.1"
 
 
 [build-system]
