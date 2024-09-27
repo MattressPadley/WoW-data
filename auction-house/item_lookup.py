@@ -36,6 +36,17 @@ def get_item_data(access_token, region, item_id):
     response.raise_for_status()
     return response.json()
 
+def get_item_media(access_token, region, item_id):
+    """Fetch item media data from the Blizzard API."""
+    url = f"https://{region}.api.blizzard.com/data/wow/media/item/{item_id}"
+    params = {
+        "namespace": "static-us",
+        "locale": "en_US",
+        "access_token": access_token,
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
 
 def search_item_by_name(access_token, region, item_name, page=1):
     """Search for items by name using the Blizzard API."""
@@ -44,7 +55,7 @@ def search_item_by_name(access_token, region, item_name, page=1):
         "namespace": "static-us",
         "name.en_US": item_name,
         "orderby": "name",
-        "_pageSize": 10,
+        "_pageSize": 50,
         "_page": page,
         "access_token": access_token,
     }
@@ -132,11 +143,15 @@ def main():
         db = client["wow"]
         item_collection = db["item_data"]
         commodities_collection = db["commodities"]
+        media_collection = db["item_media"]
 
         # Check if the item is already in the database
         if not check_item_in_db(item_collection, item_id):
             item_data = get_item_data(access_token, region, item_id)
             insert_item_to_db(item_collection, item_data)
+            item_media = get_item_media(access_token, region, item_id)
+            insert_item_to_db(media_collection, item_media)
+
             print("Item data added to the database.")
         else:
             print("Item data already exists in the database.")

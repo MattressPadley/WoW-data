@@ -31,7 +31,6 @@ def add_timestamp(item_data):
     item_data["ts"] = datetime.datetime.now(datetime.timezone.utc)
     return item_data
 
-
 if __name__ == "__main__":
     # Get the access token
     try:
