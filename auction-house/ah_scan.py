@@ -47,14 +47,17 @@ if __name__ == "__main__":
 
         existing_ids = set(collection.distinct("id"))
         new_auctions = [auction for auction in commodites_data["auctions"] if auction["id"] not in existing_ids]
+        
+        if new_auctions is not None:
 
-        ts_data = []
-        for auction in new_auctions:
-            ts_data.append(add_timestamp(auction))
+            ts_data = []
+            for auction in new_auctions:
+                ts_data.append(add_timestamp(auction))
 
-        collection.insert_many(ts_data)
-        print (f"Added {len(ts_data)} new auctions to the database.")
-          
+            collection.insert_many(ts_data)
+            print (f"Added {len(ts_data)} new auctions to the database.")
+        else:
+            print("No new auctions to add.")
 
     except Exception as e:
         print(f"Error: {str(e)}")
