@@ -7,6 +7,8 @@
 ## Gear Sources
 ![Gear Source Table](https://github.com/MattressPadley/WoW-data/blob/main/img/gear_source_table.png)
 
+## Crest Sources
+![Crest Source Table](https://github.com/MattressPadley/WoW-data/blob/main/img/crest_source_table.png)
 
 ## One Page Cheat Sheet
 ![Gear Progression Report](https://github.com/MattressPadley/WoW-data/blob/main/img/gear_prog_report.png)

@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from data import gear_source_data, custom_track_colors, colors
-
+from data import crest_source_data, colors
 
 # Define styles for the column headers
 header_font = "DejaVu Sans"
@@ -10,25 +9,23 @@ header_background_color = colors["Base"]
 row_text_color = colors["Base"]
 
 # Create lists for the DataFrame
-tracks = []
+crests = []
 sources = []
-required_crests = []
 
 # Populate lists
-for track, info in gear_source_data.items():
-    tracks.append(track)
+for crest, info in crest_source_data.items():
+    crests.append(crest)
     # Join sources with line breaks
     source_str = "\n".join(info["Source"])
     sources.append(source_str)
-    required_crests.append(info["Required Crest"])
 
 # Create DataFrame
 df = pd.DataFrame(
-    {"Track": tracks, "Source": sources, "Required Crest": required_crests}
+    {"Crest": crests, "Source": sources}
 )
 
-# Adjust the figure width accordingly
-fig, ax = plt.subplots(figsize=(5, 6))
+# Create figure and axis
+fig, ax = plt.subplots(figsize=(5, 4))
 ax.axis("off")
 
 # Create table with adjusted bounding box to fit the table snugly
@@ -43,13 +40,21 @@ table = ax.table(
 # Set font sizes
 table.auto_set_font_size(False)
 table.set_fontsize(9)
-table.auto_set_column_width([0,1,2,3])
+table.auto_set_column_width([0,1])
 
 # Get max number of lines in any cell per row to adjust row heights
 max_lines_per_row = []
 for index, row in df.iterrows():
     max_lines = max(len(str(cell).split("\n")) for cell in row)
     max_lines_per_row.append(max_lines)
+
+# Define crest colors
+crest_colors = {
+    "Gilded Crest": colors["Yellow"],
+    "Runed Crest": colors["Mauve"],
+    "Carved Crest": colors["Blue"],
+    "Weathered Crest": colors["Peach"],
+}
 
 # Set cell properties
 for (row, col), cell in table.get_celld().items():
@@ -78,17 +83,16 @@ for (row, col), cell in table.get_celld().items():
             ha="left",
             va="center",
         )
-        # Get the track name for this row
-        track_name = df.iloc[row - 1]["Track"]
-        # Set background color based on track
-        background_color = custom_track_colors.get(track_name, "#FFFFFF")
+        # Get the crest name for this row
+        crest_name = df.iloc[row - 1]["Crest"]
+        # Set background color based on crest
+        background_color = crest_colors.get(crest_name, "#FFFFFF")
         cell.set_facecolor(background_color)
         cell.set_edgecolor("none")
-
 
 # Remove any white border or extra space around the table
 plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
 # Save the figure without any padding
-plt.savefig("img/gear_source_table.png", dpi=600, bbox_inches="tight", pad_inches=0)
-plt.close()
+plt.savefig("img/crest_source_table.png", dpi=600, bbox_inches="tight", pad_inches=0)
+plt.close() 

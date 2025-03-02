@@ -104,8 +104,18 @@ def pad_image_to_width(image, target_width, background_color=(255, 255, 255)):
 
 # Example usage
 if __name__ == '__main__':
+    # First combine gear upgrade chart and crest source table vertically
     combine_images(
         "img/gear_upgrade_chart.png",
+        "img/crest_source_table.png",
+        "img/chart_and_crest.png",
+        orientation="vertical",
+        background_color=colors["Base"],
+    )
+    
+    # Then combine that result with the gear source table horizontally
+    combine_images(
+        "img/chart_and_crest.png",
         "img/gear_source_table.png",
         "img/gear_prog_report.png",
         orientation="horizontal",

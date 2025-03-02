@@ -39,7 +39,11 @@ ax.set_xlabel('Item Level',
                fontsize=10, 
                color=colors['Text'])
 
-ax.set_xlim(left=540, right=650)
+# Calculate dynamic x-axis limits with 2% padding
+min_ilevel = df_ordered['Starting Item Level'].min()
+max_ilevel = df_ordered['Max Item Level'].max()
+padding = (max_ilevel - min_ilevel) * 0.1  # 2% padding
+ax.set_xlim(left=min_ilevel - padding, right=max_ilevel + padding * 3)  # Extra padding on right for labels
 
 # Add dotted vertical grid lines
 ax.yaxis.grid(True, linestyle=":", linewidth=0.5, color=colors["Text"])
