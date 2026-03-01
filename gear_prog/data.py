@@ -28,6 +28,7 @@ colors = {
 }
 
 custom_track_colors = {
+    'Explorer': colors['Blue'],
     'Adventurer': colors['Sapphire'],
     'Veteran': colors['Sky'],
     'Champion': colors['Teal'],
@@ -39,11 +40,12 @@ custom_track_colors = {
 }
 
 gear_score_data = {
-    'Adventurer': {'Starting Item Level': 224, 'Max Item Level': 237},
-    'Veteran': {'Starting Item Level': 237, 'Max Item Level': 250},
-    'Champion': {'Starting Item Level': 250, 'Max Item Level': 263},
-    'Hero': {'Starting Item Level': 263, 'Max Item Level': 276},
-    'Myth': {'Starting Item Level': 276, 'Max Item Level': 289},
+    'Explorer': {'Starting Item Level': 208, 'Max Item Level': 224},
+    'Adventurer': {'Starting Item Level': 220, 'Max Item Level': 237},
+    'Veteran': {'Starting Item Level': 233, 'Max Item Level': 250},
+    'Champion': {'Starting Item Level': 246, 'Max Item Level': 263},
+    'Hero': {'Starting Item Level': 259, 'Max Item Level': 276},
+    'Myth': {'Starting Item Level': 272, 'Max Item Level': 289},
     'Crafted (Veteran)': {'Starting Item Level': 233, 'Max Item Level': 246},
     'Crafted (Hero)': {'Starting Item Level': 259, 'Max Item Level': 272},
     'Crafted (Myth)': {'Starting Item Level': 272, 'Max Item Level': 285},
@@ -74,6 +76,7 @@ gear_source_data = {
             "Mythic Seasonal Dungeons",
             "Nightmare Prey Hunts",
             "Delves Tiers 7-8",
+            "Trovehunter's Bounty Tiers 6-7",
         ],
         "Required Crest": "Champion Dawncrest",
     },
@@ -83,16 +86,26 @@ gear_source_data = {
             "Heroic Seasonal Dungeons",
             "Hard Prey Hunts",
             "Delves Tiers 5-6",
+            "Trovehunter's Bounty Tiers 4-5",
         ],
         "Required Crest": "Veteran Dawncrest",
     },
     "Adventurer": {
         "Source": [
-            "Outdoor Events",
+            "Normal Seasonal Dungeons",
             "Normal Prey Hunts",
             "Delves Tiers 1-4",
+            "Outdoor Events",
         ],
         "Required Crest": "Adventurer Dawncrest",
+    },
+    "Explorer": {
+        "Source": [
+            "Normal Dungeons",
+            "Follower Dungeons",
+            "World Quests",
+        ],
+        "Required Crest": "None",
     },
     "Crafted (Veteran)": {
         "Source": ["Spark of Radiance + Veteran Dawncrest"],
