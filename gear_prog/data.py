@@ -28,122 +28,125 @@ colors = {
 }
 
 custom_track_colors = {
-    'Normal Dungeon': colors['Lavender'],
-    'Explorer': colors['Blue'],
     'Adventurer': colors['Sapphire'],
     'Veteran': colors['Sky'],
     'Champion': colors['Teal'],
     'Hero': colors['Green'],
     'Myth': colors['Yellow'],
-    'Base Spark Crafted': colors['Maroon'],
-    'Crafted (Weathered)': colors['Red'],
-    'Crafted (Runed)': colors['Mauve'],
-    'Crafted (Gilded)': colors['Pink']
+    'Crafted (Veteran)': colors['Red'],
+    'Crafted (Hero)': colors['Mauve'],
+    'Crafted (Myth)': colors['Pink']
 }
 
 gear_score_data = {
-    'Normal Dungeon': {'Starting Item Level': 629, 'Max Item Level': 645}, 
-    'Explorer': {'Starting Item Level': 597, 'Max Item Level': 619}, 
-    'Adventurer': {'Starting Item Level': 610, 'Max Item Level': 632}, 
-    'Veteran': {'Starting Item Level': 623, 'Max Item Level': 645}, 
-    'Champion': {'Starting Item Level': 636, 'Max Item Level': 658}, 
-    'Hero': {'Starting Item Level': 649, 'Max Item Level': 665}, 
-    'Myth': {'Starting Item Level': 662, 'Max Item Level': 678}, 
-    'Base Spark Crafted': {'Starting Item Level': 623, 'Max Item Level': 636}, 
-    'Crafted (Weathered)': {'Starting Item Level': 616, 'Max Item Level': 629}, 
-    'Crafted (Runed)': {'Starting Item Level': 645, 'Max Item Level': 658}, 
-    'Crafted (Gilded)': {'Starting Item Level': 662, 'Max Item Level': 675} 
+    'Adventurer': {'Starting Item Level': 224, 'Max Item Level': 237},
+    'Veteran': {'Starting Item Level': 237, 'Max Item Level': 250},
+    'Champion': {'Starting Item Level': 250, 'Max Item Level': 263},
+    'Hero': {'Starting Item Level': 263, 'Max Item Level': 276},
+    'Myth': {'Starting Item Level': 276, 'Max Item Level': 289},
+    'Crafted (Veteran)': {'Starting Item Level': 233, 'Max Item Level': 246},
+    'Crafted (Hero)': {'Starting Item Level': 259, 'Max Item Level': 272},
+    'Crafted (Myth)': {'Starting Item Level': 272, 'Max Item Level': 285},
 }
 
 gear_source_data = {
     "Myth": {
-        "Source": ["Mythic Raid", "Mythic +8-12 Dungeons", "Mythic Great Vault"],
-        "Required Crest": "Gilded Crest",
+        "Source": [
+            "Mythic Raid",
+            "Mythic +9 and Higher",
+            "Mythic Great Vault",
+        ],
+        "Required Crest": "Myth Dawncrest",
     },
     "Hero": {
         "Source": [
             "Heroic Raid",
-            "Mythic +5-7 Dungeons",
+            "Mythic +4-8 Dungeons",
             "Heroic Great Vault",
-            "Very Rare Dungeon Drops"
+            "Delves Tier 11",
         ],
-        "Required Crest": "Runed Crest\nGilded Crest",
+        "Required Crest": "Hero Dawncrest",
     },
     "Champion": {
         "Source": [
             "Normal Raid",
-            "Mythic +2-4 Dungeons",
-            "Normal Great Vault",
-            "Mythic Dungeons",
+            "Mythic +2-3 Dungeons",
+            "Mythic Seasonal Dungeons",
+            "Nightmare Prey Hunts",
+            "Delves Tiers 7-8",
         ],
-        "Required Crest": "Carved Crest\nRuned Crest",
+        "Required Crest": "Champion Dawncrest",
     },
     "Veteran": {
         "Source": [
-            "LFR Raid",
-            "Heroic Dungeons",
-            "Weathered Crest Drops",
+            "Raid Finder",
+            "Heroic Seasonal Dungeons",
+            "Hard Prey Hunts",
+            "Delves Tiers 5-6",
         ],
-        "Required Crest": "Weathered Crest\nCarved Crest",
+        "Required Crest": "Veteran Dawncrest",
     },
     "Adventurer": {
         "Source": [
-            "Delve Tiers 1-4",
-            "Explorer Track 5-8"
+            "Outdoor Events",
+            "Normal Prey Hunts",
+            "Delves Tiers 1-4",
         ],
-        "Required Crest": "Weathered Crest",
+        "Required Crest": "Adventurer Dawncrest",
     },
-    "Explorer": {
-        "Source": [
-            "Delve Tiers 1-4",
-            "Explorer Track 1-4"
-        ],
-        "Required Crest": "Weathered Crest",
+    "Crafted (Veteran)": {
+        "Source": ["Spark of Radiance + Veteran Dawncrest"],
+        "Required Crest": "Veteran Dawncrest",
     },
-    "Crafted (Runed)": {
-        "Source": ["Enchanted Runed"],
-        "Required Crest": "Runed Crest",
+    "Crafted (Hero)": {
+        "Source": ["Spark of Radiance + Hero Dawncrest"],
+        "Required Crest": "Hero Dawncrest",
     },
-    "Crafted (Weathered)": {
-        "Source": ["Enchanted Weathered"],
-        "Required Crest": "Weathered Crest",
-    },
-    "Crafted (Gilded)": {
-        "Source": ["Enchanted Gilded"],
-        "Required Crest": "Gilded Crest",
+    "Crafted (Myth)": {
+        "Source": ["Spark of Radiance + Myth Dawncrest"],
+        "Required Crest": "Myth Dawncrest",
     },
 }
 
 crest_source_data = {
-    "Gilded Crest": {
+    "Myth Dawncrest": {
         "Source": [
-            "Mythic +7-12 Dungeons",
+            "Mythic +9 and Higher",
             "Mythic Raid Bosses",
-            "Heroic Raid Bosses 1-7",
-            "Bountiful Delves Tier 11"
         ]
     },
-    "Runed Crest": {
+    "Hero Dawncrest": {
         "Source": [
-            "Mythic +2-6 Dungeons",
-            "Heroic Raid Bosses 1-7",
-            "Normal Raid Bosses 7-8",
-            "Bountiful Delves Tiers 8-10"
+            "Mythic +4-8 Dungeons",
+            "Heroic Raid Bosses",
+            "Delves Tier 11",
+            "Trovehunter's Bounty Tiers 8+",
         ]
     },
-    "Carved Crest": {
+    "Champion Dawncrest": {
         "Source": [
-            "Mythic 0 Dungeons",
-            "Normal Raid Bosses 1-7",
-            "LFR Raid Bosses 7-8",
-            "Bountiful Delves Tiers 6-7"
+            "Mythic +2-3 Dungeons",
+            "Mythic Seasonal Dungeons",
+            "Normal Raid Bosses",
+            "Nightmare Prey Hunts",
+            "Delves Tiers 7-8",
+            "Trovehunter's Bounty Tiers 6-7",
         ]
     },
-    "Weathered Crest": {
+    "Veteran Dawncrest": {
         "Source": [
-            "LFR Raid Bosses 1-8",
-            "Heroic Dungeons",
-            "Bountiful Delves Tiers 1-5"
+            "Heroic Seasonal Dungeons",
+            "Raid Finder Bosses",
+            "Hard Prey Hunts",
+            "Delves Tiers 5-6",
+            "Trovehunter's Bounty Tiers 4-5",
         ]
-    }
+    },
+    "Adventurer Dawncrest": {
+        "Source": [
+            "Outdoor Events",
+            "Normal Prey Hunts",
+            "Delves Tiers 1-4",
+        ]
+    },
 }

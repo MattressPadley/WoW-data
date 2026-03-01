@@ -25,7 +25,7 @@ df = pd.DataFrame(
 )
 
 # Create figure and axis
-fig, ax = plt.subplots(figsize=(5, 4))
+fig, ax = plt.subplots(figsize=(5, 5))
 ax.axis("off")
 
 # Create table with adjusted bounding box to fit the table snugly
@@ -50,10 +50,11 @@ for index, row in df.iterrows():
 
 # Define crest colors
 crest_colors = {
-    "Gilded Crest": colors["Yellow"],
-    "Runed Crest": colors["Mauve"],
-    "Carved Crest": colors["Blue"],
-    "Weathered Crest": colors["Peach"],
+    "Myth Dawncrest": colors["Yellow"],
+    "Hero Dawncrest": colors["Green"],
+    "Champion Dawncrest": colors["Teal"],
+    "Veteran Dawncrest": colors["Sky"],
+    "Adventurer Dawncrest": colors["Sapphire"],
 }
 
 # Set cell properties
