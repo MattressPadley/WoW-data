@@ -22,13 +22,8 @@ try {
   const api = new WoWAPI(getArg("--region") ?? "us");
   const result = await resolveRecipeReagents(api, id, noCache);
 
-  if (result.type === "old") {
-    const { type: _, ...data } = result;
-    output(data, pretty);
-  } else {
-    const { type: _, ...data } = result;
-    output(data, pretty);
-  }
+  const { type: _, ...data } = result;
+  output(data, pretty);
 } catch (err: any) {
   console.error(JSON.stringify({ error: err.message ?? String(err) }));
   process.exit(1);

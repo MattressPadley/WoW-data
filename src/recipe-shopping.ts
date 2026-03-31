@@ -11,7 +11,7 @@
 
 import { WoWAPI } from "./api.ts";
 import { requireArg, getArg, hasFlag, output, parseGold } from "./utils.ts";
-import { resolveRecipeReagents } from "./lib/recipe-reagents.ts";
+import { resolveRecipeReagents, type ReagentSlot } from "./lib/recipe-reagents.ts";
 
 interface Auction {
   item_id: number;
@@ -103,12 +103,12 @@ try {
   }
 
   // Build shopping list
-  let grandTotal = 0;
 
-  if (recipe.type === "old") {
-    const shopping_list = recipe.reagents.map((r) => {
+  function priceBasicReagents(reagents: { item_id: number; name: string; quantity: number }[]) {
+    let total = 0;
+    const list = reagents.map((r) => {
       const fill = calculateFillCost(priceIndex.get(r.item_id) ?? [], r.quantity);
-      if (fill.fully_available) grandTotal += fill.total_cost;
+      if (fill.fully_available) total += fill.total_cost;
       return {
         item_id: r.item_id,
         name: r.name,
@@ -120,24 +120,18 @@ try {
         quantity_available: fill.quantity_available,
       };
     });
+    return { list, total };
+  }
 
-    output({
-      recipe_id: recipe.recipe_id,
-      recipe_name: recipe.recipe_name,
-      shopping_list,
-      grand_total: priceEntry(grandTotal),
-    }, pretty);
-  } else {
-    // Find the max quality tier across all slots
+  function priceReagentSlots(reagentSlots: ReagentSlot[]) {
     let maxTier = 0;
-    for (const slot of recipe.reagent_slots) {
+    for (const slot of reagentSlots) {
       for (const item of slot.items) {
         if (item.quality_tier > maxTier) maxTier = item.quality_tier;
       }
     }
 
-    const shopping_list = recipe.reagent_slots.map((slot) => {
-      // Price each option
+    const list = reagentSlots.map((slot) => {
       const options = slot.items.map((item) => {
         const fill = calculateFillCost(priceIndex.get(item.item_id) ?? [], slot.quantity);
         return {
@@ -151,7 +145,6 @@ try {
         };
       });
 
-      // Build cost_by_quality: for each tier, pick the cheapest available option
       const cost_by_quality: Record<string, any> = {};
       for (let tier = 1; tier <= maxTier; tier++) {
         const tierOptions = options.filter((o) => o.quality_tier === tier && o.fully_available);
@@ -165,7 +158,6 @@ try {
         }
       }
 
-      // Slots with no tiered items (e.g. embellishments) — just pick cheapest overall
       const cheapestOption = options
         .filter((o) => o.fully_available)
         .sort((a, b) => a.total_cost.raw_copper - b.total_cost.raw_copper)[0];
@@ -181,24 +173,51 @@ try {
       };
     });
 
-    // Compute total cost at each quality tier
-    // Slots with no AH-buyable options (e.g. currency-based Empower) are excluded
     const totals_by_quality: Record<string, any> = {};
     for (let tier = 1; tier <= maxTier; tier++) {
       let total = 0;
-      for (const slot of shopping_list) {
+      for (const slot of list) {
         const tierCost = slot.cost_by_quality?.[`tier_${tier}`];
         if (tierCost) {
           total += tierCost.total_cost.raw_copper;
         } else if (slot.cheapest_option) {
-          // Fall back to cheapest option for slots without this tier
           total += slot.cheapest_option.total_cost.raw_copper;
         }
-        // Slots with no options at all (currency) are simply excluded
       }
       totals_by_quality[`tier_${tier}`] = priceEntry(total);
     }
 
+    return { list, totals_by_quality };
+  }
+
+  if (recipe.type === "old") {
+    const { list: shopping_list, total: grandTotal } = priceBasicReagents(recipe.reagents);
+    output({
+      recipe_id: recipe.recipe_id,
+      recipe_name: recipe.recipe_name,
+      shopping_list,
+      grand_total: priceEntry(grandTotal),
+    }, pretty);
+  } else if (recipe.type === "hybrid") {
+    const { list: shopping_list, total: basicTotal } = priceBasicReagents(recipe.reagents);
+    const { list: shopping_list_slots, totals_by_quality } = priceReagentSlots(recipe.reagent_slots);
+
+    // Add basic reagent cost to each quality tier total
+    for (const key of Object.keys(totals_by_quality)) {
+      const tierCopper = totals_by_quality[key].raw_copper + basicTotal;
+      totals_by_quality[key] = priceEntry(tierCopper);
+    }
+
+    output({
+      recipe_id: recipe.recipe_id,
+      recipe_name: recipe.recipe_name,
+      shopping_list,
+      shopping_list_slots,
+      grand_total: priceEntry(basicTotal),
+      totals_by_quality,
+    }, pretty);
+  } else {
+    const { list: shopping_list, totals_by_quality } = priceReagentSlots(recipe.reagent_slots);
     output({
       recipe_id: recipe.recipe_id,
       recipe_name: recipe.recipe_name,
