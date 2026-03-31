@@ -40,8 +40,6 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 | `recipe.ts` | Get recipe details | `--id` (required) |
 | `recipe-media.ts` | Get recipe media | `--id` (required) |
 | `crafting.ts` | Modified crafting queries | `--categories`, `--category-id`, `--slot-types`, `--slot-type-id` |
-| `recipe-reagents.ts` | Get recipe reagent items + quantities | `--id` (required), `--no-cache` |
-| `recipe-shopping.ts` | Shopping list with AH prices for a recipe | `--id` (required), `--realm` (optional), `--no-cache` |
 
 ### Characters & Classes
 
@@ -166,14 +164,6 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 |------|---------|-----------|
 | `account.ts` | Account-level profile data | `--protected-character`, `--realm-id`, `--character-id` |
 
-### Smart Tools (compound, multi-API)
-
-| Tool | Purpose | Key flags |
-|------|---------|-----------|
-| `gear-check.ts` | Gear summary with weak slot detection | `--realm` (required), `--name` (required) |
-| `dungeon-loot.ts` | Current season dungeon loot filtered by class | `--realm` + `--name` OR `--class`, `--dungeon`, `--slot` |
-| `upgrades.ts` | Find gear upgrades from season dungeons | `--realm` (required), `--name` (required), `--slots`, `--min-ilvl` |
-
 ## Common workflows
 
 ### Find an item
@@ -188,24 +178,6 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 ./run src/professions.ts --id 164 --pretty
 ./run src/profession-tier.ts --profession 164 --tier 2871 --pretty
 ./run src/recipe.ts --id <recipe_id> --pretty
-```
-
-### Get recipe reagents
-```bash
-# Modern recipe (Dragonflight+) — resolves modified crafting slots to items + quantities
-./run src/recipe-reagents.ts --id 53044 --pretty
-
-# Old recipe — resolves classic SpellReagents
-./run src/recipe-reagents.ts --id 42363 --pretty
-
-# Force refresh cached DB2 data (cached 24h by default)
-./run src/recipe-reagents.ts --id 53044 --no-cache --pretty
-
-# Shopping list with AH prices (cheapest options per slot + grand total)
-./run src/recipe-shopping.ts --id 53044 --pretty
-
-# Include realm auctions for non-commodity items
-./run src/recipe-shopping.ts --id 53044 --realm 11 --pretty
 ```
 
 ### Check auction house
@@ -262,26 +234,10 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 ./run src/account.ts --pretty
 ```
 
-### Gear check & upgrades
-```bash
-# Gear summary sorted by ilvl, weak slots flagged
-./run src/gear-check.ts --realm turalyon --name treepunch --pretty
+## Related skills
 
-# All current season dungeon loot filtered for a character's class
-./run src/dungeon-loot.ts --realm turalyon --name treepunch --pretty
-
-# Filter by slot
-./run src/dungeon-loot.ts --class monk --slot head --pretty
-
-# Filter by dungeon name
-./run src/dungeon-loot.ts --dungeon "Halls of Atonement" --class monk --pretty
-
-# Full upgrade finder — identifies weak slots and finds dungeon drops
-./run src/upgrades.ts --realm turalyon --name treepunch --pretty
-
-# Target specific slots
-./run src/upgrades.ts --realm turalyon --name treepunch --slots head,chest,ring --pretty
-```
+- **gear-upgrades** — Gear analysis and dungeon upgrade finder (gear-check, dungeon-loot, upgrades tools)
+- **recipe-shopping** — Recipe reagent resolution and AH shopping lists (recipe-reagents, recipe-shopping tools)
 
 ## Important
 
