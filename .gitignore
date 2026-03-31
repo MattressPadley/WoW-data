@@ -160,3 +160,7 @@ cython_debug/
 #.idea/
 
 data/
+
+# Node / Bun
+node_modules/
+bun.lock

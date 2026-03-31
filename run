@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+VAULT_ROLE_ID="6e185e44-cf98-3bfb-ccb7-7adddecf7dff"  # wow-api-credentials role
+SECRET_ID_FILE="$HOME/.vault-tokens/wow-api"
+[[ -f "$SECRET_ID_FILE" ]] || { echo "Error: $SECRET_ID_FILE not found" >&2; exit 1; }
+exec env \
+  VAULT_ROLE_ID="$VAULT_ROLE_ID" \
+  VAULT_SECRET_ID="$(cat "$SECRET_ID_FILE")" \
+  bun run "$@"

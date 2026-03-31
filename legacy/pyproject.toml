@@ -15,6 +15,9 @@ python-dotenv = "^1.0.1"
 flask = "^3.0.3"
 pymongo = "^4.9.1"
 prettytable = "^3.11.0"
+requests = "^2.32.3"
+pylog = {git = "https://github.com/MattressPadley/pylog.git"}
+tqdm = "^4.66.0"
 
 
 [build-system]

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./run src/*)",
+      "Bash(bun run src/*)",
+      "Bash(bun add *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)"
+    ],
+    "deny": []
+  }
+}
