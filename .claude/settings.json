@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(./run src/*)",
+      "Bash(./run src/* | jq *)",
+      "Bash(cat * | jq *)",
       "Bash(bun run src/*)",
       "Bash(bun add *)",
       "Bash(git *)",

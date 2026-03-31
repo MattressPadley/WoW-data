@@ -1,6 +1,6 @@
 ---
 name: wow-api
-description: Query World of Warcraft game data via the Blizzard API. Covers all Game Data API categories: items, professions, recipes, auctions, achievements, creatures, mounts, pets, talents, PvP, M+, quests, realms, spells, and more.
+description: Query World of Warcraft game data via the Blizzard API. Covers all Game Data API categories plus character Profile API: items, professions, recipes, auctions, achievements, creatures, mounts, pets, talents, PvP, M+, quests, realms, spells, character profiles, equipment, collections, and more.
 ---
 
 # WoW API Skill
@@ -40,6 +40,8 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 | `recipe.ts` | Get recipe details | `--id` (required) |
 | `recipe-media.ts` | Get recipe media | `--id` (required) |
 | `crafting.ts` | Modified crafting queries | `--categories`, `--category-id`, `--slot-types`, `--slot-type-id` |
+| `recipe-reagents.ts` | Get recipe reagent items + quantities | `--id` (required), `--no-cache` |
+| `recipe-shopping.ts` | Shopping list with AH prices for a recipe | `--id` (required), `--realm` (optional), `--no-cache` |
 
 ### Characters & Classes
 
@@ -116,6 +118,62 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 | `guild-crest.ts` | Query guild crest components | `--border-id`, `--emblem-id` |
 | `wow-token.ts` | Get WoW Token price | (none) |
 
+### Character Profile
+
+| Tool | Purpose | Key flags |
+|------|---------|-----------|
+| `character.ts` | Query character profile data | `--realm` (required), `--name` (required), plus endpoint flags below |
+
+**Endpoint flags** (use one at a time with `--realm` and `--name`):
+
+| Flag | Sub-flag | Description |
+|------|----------|-------------|
+| *(none)* | | Profile summary |
+| `--status` | | Character status |
+| `--equipment` | | Equipped items |
+| `--achievements` | | Achievement summary |
+| `--achievements` | `--stats` | Achievement statistics |
+| `--appearance` | | Visual customization |
+| `--collections` | | All collections |
+| `--collections` | `--mounts` | Mount collection |
+| `--collections` | `--pets` | Pet collection |
+| `--collections` | `--toys` | Toy collection |
+| `--collections` | `--heirlooms` | Heirloom collection |
+| `--collections` | `--transmogs` | Transmog collection |
+| `--encounters` | | All encounters |
+| `--encounters` | `--dungeons` | Dungeon encounters |
+| `--encounters` | `--raids` | Raid encounters |
+| `--hunter-pets` | | Hunter pet roster |
+| `--media` | | Character artwork |
+| `--mythic-keystone` | | M+ profile |
+| `--mythic-keystone` | `--season <id>` | M+ season details |
+| `--professions` | | Profession progress |
+| `--pvp` | | PvP summary |
+| `--pvp` | `--bracket <bracket>` | PvP bracket (2v2, 3v3, rbg) |
+| `--quests` | | Active quests |
+| `--quests` | `--completed` | Completed quests |
+| `--reputations` | | Faction standings |
+| `--soulbinds` | | Soulbind selections |
+| `--specializations` | | Spec builds |
+| `--statistics` | | Combat statistics |
+| `--titles` | | Earned titles |
+
+### Account Profile (Protected)
+
+Requires authorization code token: `./run src/oauth.ts --profile`
+
+| Tool | Purpose | Key flags |
+|------|---------|-----------|
+| `account.ts` | Account-level profile data | `--protected-character`, `--realm-id`, `--character-id` |
+
+### Smart Tools (compound, multi-API)
+
+| Tool | Purpose | Key flags |
+|------|---------|-----------|
+| `gear-check.ts` | Gear summary with weak slot detection | `--realm` (required), `--name` (required) |
+| `dungeon-loot.ts` | Current season dungeon loot filtered by class | `--realm` + `--name` OR `--class`, `--dungeon`, `--slot` |
+| `upgrades.ts` | Find gear upgrades from season dungeons | `--realm` (required), `--name` (required), `--slots`, `--min-ilvl` |
+
 ## Common workflows
 
 ### Find an item
@@ -130,6 +188,24 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 ./run src/professions.ts --id 164 --pretty
 ./run src/profession-tier.ts --profession 164 --tier 2871 --pretty
 ./run src/recipe.ts --id <recipe_id> --pretty
+```
+
+### Get recipe reagents
+```bash
+# Modern recipe (Dragonflight+) — resolves modified crafting slots to items + quantities
+./run src/recipe-reagents.ts --id 53044 --pretty
+
+# Old recipe — resolves classic SpellReagents
+./run src/recipe-reagents.ts --id 42363 --pretty
+
+# Force refresh cached DB2 data (cached 24h by default)
+./run src/recipe-reagents.ts --id 53044 --no-cache --pretty
+
+# Shopping list with AH prices (cheapest options per slot + grand total)
+./run src/recipe-shopping.ts --id 53044 --pretty
+
+# Include realm auctions for non-commodity items
+./run src/recipe-shopping.ts --id 53044 --realm 11 --pretty
 ```
 
 ### Check auction house
@@ -163,6 +239,48 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 ./run src/pvp-season.ts --id 33 --leaderboard 3v3 --pretty
 ./run src/wow-token.ts --pretty
 ./run src/mythic-raid-leaderboard.ts --raid "nerubar-palace" --faction horde --pretty
+```
+
+### Character profile
+```bash
+./run src/character.ts --realm tichondrius --name thrall --pretty
+./run src/character.ts --realm tichondrius --name thrall --equipment --pretty
+./run src/character.ts --realm tichondrius --name thrall --mythic-keystone --pretty
+./run src/character.ts --realm tichondrius --name thrall --mythic-keystone --season 12 --pretty
+./run src/character.ts --realm tichondrius --name thrall --collections --mounts --pretty
+./run src/character.ts --realm tichondrius --name thrall --encounters --raids --pretty
+./run src/character.ts --realm tichondrius --name thrall --pvp --bracket 3v3 --pretty
+./run src/character.ts --realm tichondrius --name thrall --professions --pretty
+./run src/character.ts --realm tichondrius --name thrall --statistics --pretty
+```
+
+### Account profile (protected)
+```bash
+# First get an authorization code token
+./run src/oauth.ts --profile
+# Then query account data
+./run src/account.ts --pretty
+```
+
+### Gear check & upgrades
+```bash
+# Gear summary sorted by ilvl, weak slots flagged
+./run src/gear-check.ts --realm turalyon --name treepunch --pretty
+
+# All current season dungeon loot filtered for a character's class
+./run src/dungeon-loot.ts --realm turalyon --name treepunch --pretty
+
+# Filter by slot
+./run src/dungeon-loot.ts --class monk --slot head --pretty
+
+# Filter by dungeon name
+./run src/dungeon-loot.ts --dungeon "Halls of Atonement" --class monk --pretty
+
+# Full upgrade finder — identifies weak slots and finds dungeon drops
+./run src/upgrades.ts --realm turalyon --name treepunch --pretty
+
+# Target specific slots
+./run src/upgrades.ts --realm turalyon --name treepunch --slots head,chest,ring --pretty
 ```
 
 ## Important

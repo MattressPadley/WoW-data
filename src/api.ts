@@ -1,5 +1,21 @@
 import { getCredentials } from "./connection.ts";
 
+// Global rate limiter — Blizzard allows 100 req/s, we target ~50 req/s for safety
+const RATE_LIMIT_INTERVAL_MS = 20; // 50 req/s
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+let lastRequestTime = 0;
+
+async function rateLimitWait(): Promise<void> {
+  const now = Date.now();
+  const elapsed = now - lastRequestTime;
+  if (elapsed < RATE_LIMIT_INTERVAL_MS) {
+    await new Promise((r) => setTimeout(r, RATE_LIMIT_INTERVAL_MS - elapsed));
+  }
+  lastRequestTime = Date.now();
+}
+
 export class WoWAPI {
   private accessToken: string;
   private region: string;
@@ -18,17 +34,34 @@ export class WoWAPI {
       url.searchParams.set(k, v);
     }
 
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${this.accessToken}` },
-    });
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      await rateLimitWait();
+
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+
+      if (response.status === 429) {
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_DELAY_MS * (attempt + 1);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
     }
-    return response.json();
   }
 
-  private ns(type: "static" | "dynamic" = "static") {
+  private ns(type: "static" | "dynamic" | "profile" = "static") {
     return `${type}-${this.region}`;
+  }
+
+  private charPath(realm: string, name: string) {
+    return `/profile/wow/character/${realm}/${name.toLowerCase()}`;
   }
 
   private getData(endpoint: string, namespace?: string, locale = "en_US", extra: Record<string, string> = {}): Promise<any> {
@@ -603,5 +636,147 @@ export class WoWAPI {
   // WoW Token
   getWoWTokenIndex() {
     return this.getData("/data/wow/token/index", this.ns("dynamic"));
+  }
+
+  // Character Profile
+  getCharacterProfile(realm: string, name: string) {
+    return this.getData(this.charPath(realm, name), this.ns("profile"));
+  }
+
+  getCharacterProfileStatus(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/status`, this.ns("profile"));
+  }
+
+  // Character Achievements
+  getCharacterAchievements(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/achievements`, this.ns("profile"));
+  }
+
+  getCharacterAchievementStatistics(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/achievements/statistics`, this.ns("profile"));
+  }
+
+  // Character Appearance
+  getCharacterAppearance(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/appearance`, this.ns("profile"));
+  }
+
+  // Character Collections
+  getCharacterCollections(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections`, this.ns("profile"));
+  }
+
+  getCharacterMountsCollection(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections/mounts`, this.ns("profile"));
+  }
+
+  getCharacterPetsCollection(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections/pets`, this.ns("profile"));
+  }
+
+  getCharacterToysCollection(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections/toys`, this.ns("profile"));
+  }
+
+  getCharacterHeirloomsCollection(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections/heirlooms`, this.ns("profile"));
+  }
+
+  getCharacterTransmogCollection(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/collections/transmogs`, this.ns("profile"));
+  }
+
+  // Character Encounters
+  getCharacterEncounters(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/encounters`, this.ns("profile"));
+  }
+
+  getCharacterDungeons(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/encounters/dungeons`, this.ns("profile"));
+  }
+
+  getCharacterRaids(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/encounters/raids`, this.ns("profile"));
+  }
+
+  // Character Equipment
+  getCharacterEquipment(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/equipment`, this.ns("profile"));
+  }
+
+  // Character Hunter Pets
+  getCharacterHunterPets(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/hunter-pets`, this.ns("profile"));
+  }
+
+  // Character Media
+  getCharacterMedia(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/character-media`, this.ns("profile"));
+  }
+
+  // Character Mythic Keystone Profile
+  getCharacterMythicKeystoneProfile(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/mythic-keystone-profile`, this.ns("profile"));
+  }
+
+  getCharacterMythicKeystoneSeason(realm: string, name: string, seasonId: number) {
+    return this.getData(`${this.charPath(realm, name)}/mythic-keystone-profile/season/${seasonId}`, this.ns("profile"));
+  }
+
+  // Character Professions
+  getCharacterProfessions(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/professions`, this.ns("profile"));
+  }
+
+  // Character PvP
+  getCharacterPvpSummary(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/pvp-summary`, this.ns("profile"));
+  }
+
+  getCharacterPvpBracket(realm: string, name: string, bracket: string) {
+    return this.getData(`${this.charPath(realm, name)}/pvp-bracket/${bracket}`, this.ns("profile"));
+  }
+
+  // Character Quests
+  getCharacterQuests(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/quests`, this.ns("profile"));
+  }
+
+  getCharacterCompletedQuests(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/quests/completed`, this.ns("profile"));
+  }
+
+  // Character Reputations
+  getCharacterReputations(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/reputations`, this.ns("profile"));
+  }
+
+  // Character Soulbinds
+  getCharacterSoulbinds(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/soulbinds`, this.ns("profile"));
+  }
+
+  // Character Specializations
+  getCharacterSpecializations(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/specializations`, this.ns("profile"));
+  }
+
+  // Character Statistics
+  getCharacterStatistics(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/statistics`, this.ns("profile"));
+  }
+
+  // Character Titles
+  getCharacterTitles(realm: string, name: string) {
+    return this.getData(`${this.charPath(realm, name)}/titles`, this.ns("profile"));
+  }
+
+  // Account Profile (protected — requires authorization code token)
+  getAccountProfile() {
+    return this.getData("/profile/user/wow", this.ns("profile"));
+  }
+
+  getProtectedCharacter(realmId: number, characterId: number) {
+    return this.getData(`/profile/user/wow/protected-character/${realmId}-${characterId}`, this.ns("profile"));
   }
 }
