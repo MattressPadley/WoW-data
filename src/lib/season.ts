@@ -60,6 +60,8 @@ export interface SeasonData {
   mythic_plus_end_of_dungeon?: KeyRangeEntry[];
   mythic_plus_vault?: KeyRangeEntry[];
   mythic_plus_crests?: CrestRangeEntry[];
+  delve_end_of_run?: KeyRangeEntry[];
+  delve_vault?: KeyRangeEntry[];
 }
 
 interface BootstrapQuery {
@@ -197,6 +199,44 @@ export function getMythicPlusIlvl(season: SeasonData, keyLevel: number): MythicP
       upgrade_range: { min: vaultTrack.min_ilvl, max: vaultTrack.max_ilvl, ranks: vaultTrack.ranks },
     },
     crest,
+  };
+}
+
+export interface DelveIlvlResult {
+  end_of_run: { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } };
+  vault: { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } };
+}
+
+/** Resolve ilvl info for a bountiful delve tier (end-of-run + vault). */
+export function getDelveIlvl(season: SeasonData, tier: number): DelveIlvlResult | null {
+  const eodEntries = season.delve_end_of_run;
+  const vaultEntries = season.delve_vault;
+  if (!eodEntries || !vaultEntries) return null;
+
+  const eod = findKeyRange(eodEntries, tier);
+  const vault = findKeyRange(vaultEntries, tier);
+  if (!eod || !vault) return null;
+
+  const eodRanks = season.track_ranks[eod.track];
+  const vaultRanks = season.track_ranks[vault.track];
+  if (!eodRanks || !vaultRanks) return null;
+
+  const eodTrack = season.tracks[eod.track];
+  const vaultTrack = season.tracks[vault.track];
+
+  return {
+    end_of_run: {
+      ilvl: eodRanks[Math.min(eod.rank - 1, eodRanks.length - 1)],
+      track: eod.track,
+      rank: eod.rank,
+      upgrade_range: { min: eodTrack.min_ilvl, max: eodTrack.max_ilvl, ranks: eodTrack.ranks },
+    },
+    vault: {
+      ilvl: vaultRanks[Math.min(vault.rank - 1, vaultRanks.length - 1)],
+      track: vault.track,
+      rank: vault.rank,
+      upgrade_range: { min: vaultTrack.min_ilvl, max: vaultTrack.max_ilvl, ranks: vaultTrack.ranks },
+    },
   };
 }
 

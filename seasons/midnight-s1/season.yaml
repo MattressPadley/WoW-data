@@ -128,3 +128,59 @@ mythic_plus_crests:
     crest: hero
   - key_range: [9, 99]
     crest: myth
+
+# --- Delve reward tables ---
+
+# End-of-delve reward ilvl by bountiful tier (caps at tier 8)
+delve_end_of_run:
+  - key_range: [1, 1]
+    track: adventurer
+    rank: 1                                   # ilvl 220
+  - key_range: [2, 2]
+    track: adventurer
+    rank: 2                                   # ilvl 224
+  - key_range: [3, 3]
+    track: adventurer
+    rank: 3                                   # ilvl 227
+  - key_range: [4, 4]
+    track: adventurer
+    rank: 4                                   # ilvl 230
+  - key_range: [5, 5]
+    track: veteran
+    rank: 1                                   # ilvl 233
+  - key_range: [6, 6]
+    track: veteran
+    rank: 2                                   # ilvl 237
+  - key_range: [7, 7]
+    track: champion
+    rank: 1                                   # ilvl 246
+  - key_range: [8, 11]
+    track: champion
+    rank: 2                                   # ilvl 250 (cap)
+
+# Great Vault reward ilvl from delves (based on highest tier completed)
+delve_vault:
+  - key_range: [1, 1]
+    track: veteran
+    rank: 1                                   # ilvl 233
+  - key_range: [2, 2]
+    track: veteran
+    rank: 2                                   # ilvl 237
+  - key_range: [3, 3]
+    track: veteran
+    rank: 3                                   # ilvl 240
+  - key_range: [4, 4]
+    track: veteran
+    rank: 4                                   # ilvl 243
+  - key_range: [5, 5]
+    track: champion
+    rank: 1                                   # ilvl 246
+  - key_range: [6, 6]
+    track: champion
+    rank: 3                                   # ilvl 253
+  - key_range: [7, 7]
+    track: champion
+    rank: 4                                   # ilvl 256
+  - key_range: [8, 11]
+    track: hero
+    rank: 1                                   # ilvl 259
