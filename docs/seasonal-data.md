@@ -77,9 +77,9 @@ tier_token_prefixes:
   Alnwoven: Cloth
 ```
 
-## How ilvl resolution works
+## How raid ilvl resolution works
 
-When `--difficulty` is specified on a loot query, the system resolves each item's display ilvl:
+When `--difficulty` is specified on a raid loot query, the system resolves each item's display ilvl:
 
 1. **Difficulty → track**: `raid_difficulty_track` maps e.g. `normal` → `champion`
 2. **Boss position → rank**: `boss_rank_rules` maps the boss's position in the encounter list to a starting rank within the track (later bosses = higher rank)
@@ -90,6 +90,31 @@ Example: Normal difficulty, boss 4 (Vaelgor & Ezzorak in Voidspire)
 - Boss position 4 → rank 3 (from `positions: [4, 5]`)
 - Champion rank 3 → ilvl 253
 - Upgrade range: 246–263 (6 ranks)
+
+## How dungeon/M+ ilvl resolution works
+
+Dungeon loot uses different fields from `season.yaml`:
+
+### Non-M+ difficulties
+
+`dungeon_difficulty_track` maps difficulty → `{ track, rank }` directly (all bosses drop the same ilvl):
+- `heroic` → Adventurer 4/6 (ilvl 230)
+- `mythic` → Champion 1/6 (ilvl 246, M0)
+- `normal` has no track (ilvl 214)
+
+### M+ key levels
+
+`mythic_plus_end_of_dungeon` and `mythic_plus_vault` map key level ranges to `{ track, rank }`:
+- End-of-dungeon loot caps at +10 (Hero 3/6, ilvl 266)
+- Great Vault scales to +18 (Myth 4/6, ilvl 282)
+
+`mythic_plus_crests` maps key level ranges to crest types (champion, hero, myth).
+
+### Keystone dungeon rotation
+
+`keystone_dungeons` lists the 8 M+ rotation dungeons by journal instance ID. The `--season-dungeons` flag reads from this list (not the API's "Current Season" journal tier, which includes non-M+ dungeons).
+
+Legacy dungeons may include a `min_item_id` field to filter out bloated historical loot tables from their original expansion. Only items with IDs at or above this threshold are shown.
 
 ## Bootstrapping a new season
 
@@ -135,8 +160,9 @@ The active season is stored in `seasons/current.yaml` as `{ slug: <slug> }`. All
 
 | File | Purpose |
 |------|---------|
-| `src/lib/season.ts` | Load season YAML, bootstrap, ilvl helpers |
-| `src/lib/item-difficulty.ts` | Batch resolve display ilvls for item lists |
+| `src/lib/season.ts` | Load season YAML, bootstrap, raid/dungeon/M+ ilvl helpers |
+| `src/lib/item-difficulty.ts` | Batch resolve display ilvls for raids (`resolveItemDifficultyIlvls`) and dungeons (`resolveDungeonItemIlvls`) |
+| `src/lib/dungeon-journal.ts` | Dungeon loot with class filtering and ilvl resolution |
 | `src/season.ts` | CLI tool for season management |
 | `seasons/current.yaml` | Active season pointer |
-| `seasons/<slug>/season.yaml` | Per-season config |
+| `seasons/<slug>/season.yaml` | Per-season config (tracks, raids, dungeons, M+, keystone rotation) |

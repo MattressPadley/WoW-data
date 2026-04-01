@@ -1,13 +1,14 @@
 # Loot Query Tools
 
-Three CLI tools query loot from the Blizzard Journal API, filter it by class/spec, and resolve item levels using the seasonal data system.
+Four CLI tools query loot from the Blizzard Journal API, filter it by class/spec, and resolve item levels using the seasonal data system.
 
 ## Tools overview
 
 | Tool | Purpose | Source |
 |------|---------|--------|
 | `raid-journal.ts` | Raid boss mechanics and loot tables | `src/raid-journal.ts` + `src/lib/raid-journal.ts` |
-| `dungeon-loot.ts` | Current season dungeon loot by class | `src/dungeon-loot.ts` + `src/lib/dungeon-loot.ts` |
+| `dungeon-journal.ts` | Dungeon boss mechanics and loot tables with M+ ilvl | `src/dungeon-journal.ts` + `src/lib/dungeon-journal.ts` |
+| `dungeon-loot.ts` | Quick dungeon loot listing by class (gear-upgrades) | `src/dungeon-loot.ts` + `src/lib/dungeon-loot.ts` |
 | `upgrades.ts` | Find dungeon upgrades for a character | `src/upgrades.ts` |
 
 All tools are run via `./run src/<tool>.ts [flags]` and output JSON. Add `--pretty` for formatted output.
@@ -94,7 +95,69 @@ Key fields:
 ./run src/raid-journal.ts --boss-id 2795
 ```
 
+## dungeon-journal.ts
+
+Full-featured dungeon loot tool with boss mechanics, difficulty/M+ ilvl resolution, and legacy dungeon filtering. Mirrors `raid-journal.ts` for dungeons.
+
+### Actions
+
+| Flag combo | Action |
+|-----------|--------|
+| `--dungeons` | List all dungeons in the journal |
+| `--season-dungeons` | List current M+ keystone rotation (from season.yaml) |
+| `--expansion-id <id>` | List dungeons for a specific expansion |
+| `--search "<query>"` | Search dungeons by name |
+| `--dungeon-id <id>` | Dungeon overview with boss list |
+| `--dungeon-id <id> --loot` | Full loot table for all bosses |
+| `--boss-id <id>` | Single encounter mechanics |
+| `--boss-id <id> --loot` | Single encounter loot table |
+
+### Loot flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--difficulty <normal\|heroic\|mythic>` | Non-M+ difficulty ilvl | `mythic` (M0) |
+| `--key-level <N>` | M+ key level (2-18+), mutually exclusive with `--difficulty` | none |
+| `--class <class>` | Filter loot for a class | none (show all) |
+| `--spec <spec>` | Narrow to a spec's primary stat (requires `--class`) | none |
+| `--season <slug>` | Override current season | current season |
+
+### M+ loot output fields
+
+When `--key-level` is used, items include both end-of-dungeon and vault ilvls:
+
+- `end_of_dungeon_ilvl` — Challenger's Cache ilvl (caps at +10)
+- `vault_ilvl` — Great Vault reward ilvl (scales to +18)
+- `track`, `rank`, `upgrade_range` — end-of-dungeon upgrade info
+- `vault_track`, `vault_rank`, `vault_upgrade_range` — vault upgrade info
+- `crest` — crest type earned at this key level
+
+### Legacy dungeon filtering
+
+Legacy dungeons (Skyreach, Pit of Saron) have bloated journal loot tables from their original expansion. The tool filters these using `min_item_id` from `season.yaml`, keeping only the curated M+ items. Use `--dungeon-id --loot` (not `--boss-id`) for legacy dungeons to get filtered results.
+
+### Examples
+
+```bash
+# Current M+ keystone dungeons
+./run src/dungeon-journal.ts --season-dungeons
+
+# Search for a dungeon
+./run src/dungeon-journal.ts --search "skyreach"
+
+# Boss mechanics
+./run src/dungeon-journal.ts --boss-id 968
+
+# M+10 loot for Windwalker Monk
+./run src/dungeon-journal.ts --dungeon-id 476 --loot --key-level 10 --class monk --spec ww
+
+# Heroic difficulty loot
+./run src/dungeon-journal.ts --dungeon-id 1300 --loot --difficulty heroic --class paladin
+```
+
 ## dungeon-loot.ts
+
+Lightweight loot listing for the gear-upgrades skill. Queries loot from current season dungeons filtered by class/spec — no mechanics, no ilvl resolution.
 
 Queries loot from all current season dungeons, filtered by class/spec.
 
@@ -173,7 +236,8 @@ Both `raid-journal.ts` and `dungeon-loot.ts` use an in-memory item cache (`Map<n
 | Module | Exports | Used by |
 |--------|---------|---------|
 | `src/lib/class-meta.ts` | `isItemForClass`, `getArmorType`, `normalizeClass`, `normalizeSpec`, etc. | All loot tools |
-| `src/lib/item-difficulty.ts` | `resolveItemDifficultyIlvls` | raid-journal |
-| `src/lib/season.ts` | `loadSeason`, `getDisplayIlvl`, `getUpgradeRange`, `getBossRank` | item-difficulty, raid-journal |
-| `src/lib/raid-journal.ts` | `getRaidLoot`, `getRaidDetail`, `getEncounterDetail`, etc. | raid-journal CLI |
+| `src/lib/item-difficulty.ts` | `resolveItemDifficultyIlvls`, `resolveDungeonItemIlvls` | raid-journal, dungeon-journal |
+| `src/lib/season.ts` | `loadSeason`, `getDisplayIlvl`, `getDungeonIlvl`, `getMythicPlusIlvl`, etc. | item-difficulty, raid-journal, dungeon-journal |
+| `src/lib/raid-journal.ts` | `getRaidLoot`, `getRaidDetail`, `getEncounterDetail`, `parseSections` | raid-journal CLI, dungeon-journal lib |
+| `src/lib/dungeon-journal.ts` | `getDungeonLootEnriched`, `getDungeonDetail`, `listSeasonDungeons`, etc. | dungeon-journal CLI |
 | `src/lib/dungeon-loot.ts` | `filterLootForClass`, `getDungeonLoot`, `getCurrentSeasonDungeons` | dungeon-loot CLI, upgrades CLI |

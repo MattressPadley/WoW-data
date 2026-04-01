@@ -148,7 +148,7 @@ export async function getRaidDetail(api: WoWAPI, instanceId: number): Promise<Ra
   };
 }
 
-function parseSections(sections: any[]): MechanicSection[] {
+export function parseSections(sections: any[]): MechanicSection[] {
   return (sections ?? []).map((s: any) => ({
     title: s.title ?? "",
     body: s.body_text ?? "",

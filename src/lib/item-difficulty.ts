@@ -3,13 +3,29 @@
  * Loads upgrade track YAML and maps difficulty + boss position → actual ilvl.
  */
 
-import { loadSeason, getDisplayIlvl, getUpgradeRange, getBossRank, type SeasonData } from "./season.ts";
+import {
+  loadSeason,
+  getDisplayIlvl,
+  getUpgradeRange,
+  getBossRank,
+  getDungeonIlvl,
+  getMythicPlusIlvl,
+  type SeasonData,
+} from "./season.ts";
 
 export interface DifficultyIlvl {
   ilvl: number;
   track: string;
   rank: number;
   upgrade_range: { min: number; max: number; ranks: number };
+}
+
+export interface DungeonDifficultyIlvl extends DifficultyIlvl {
+  vault_ilvl?: number;
+  vault_track?: string;
+  vault_rank?: number;
+  vault_upgrade_range?: { min: number; max: number; ranks: number };
+  crest?: string;
 }
 
 /**
@@ -47,6 +63,58 @@ export async function resolveItemDifficultyIlvls(
       rank,
       upgrade_range: { min: range.min, max: range.max, ranks: range.ranks },
     });
+  }
+
+  return results;
+}
+
+/**
+ * Batch-resolve display ilvls for dungeon items using seasonal data.
+ * All dungeon items get the same ilvl (no boss position logic).
+ * For M+ key levels, includes both end-of-dungeon and vault ilvls.
+ */
+export async function resolveDungeonItemIlvls(
+  itemIds: number[],
+  options: { difficulty?: string; keyLevel?: number; seasonSlug?: string },
+): Promise<Map<number, DungeonDifficultyIlvl>> {
+  let season: SeasonData;
+  try {
+    season = await loadSeason(options.seasonSlug);
+  } catch {
+    return new Map();
+  }
+
+  const results = new Map<number, DungeonDifficultyIlvl>();
+
+  if (options.keyLevel != null) {
+    const mpIlvl = getMythicPlusIlvl(season, options.keyLevel);
+    if (!mpIlvl) return results;
+
+    for (const itemId of itemIds) {
+      results.set(itemId, {
+        ilvl: mpIlvl.end_of_dungeon.ilvl,
+        track: mpIlvl.end_of_dungeon.track,
+        rank: mpIlvl.end_of_dungeon.rank,
+        upgrade_range: mpIlvl.end_of_dungeon.upgrade_range,
+        vault_ilvl: mpIlvl.vault.ilvl,
+        vault_track: mpIlvl.vault.track,
+        vault_rank: mpIlvl.vault.rank,
+        vault_upgrade_range: mpIlvl.vault.upgrade_range,
+        crest: mpIlvl.crest,
+      });
+    }
+  } else if (options.difficulty) {
+    const dIlvl = getDungeonIlvl(season, options.difficulty);
+    if (!dIlvl) return results;
+
+    for (const itemId of itemIds) {
+      results.set(itemId, {
+        ilvl: dIlvl.ilvl,
+        track: dIlvl.track,
+        rank: dIlvl.rank,
+        upgrade_range: dIlvl.upgrade_range,
+      });
+    }
   }
 
   return results;

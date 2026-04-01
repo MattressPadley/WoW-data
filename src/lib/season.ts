@@ -22,6 +22,28 @@ export interface BossRankRule {
   rank: number;
 }
 
+export interface KeyRangeEntry {
+  key_range: [number, number];
+  track: string;
+  rank: number;
+}
+
+export interface CrestRangeEntry {
+  key_range: [number, number];
+  crest: string;
+}
+
+export interface DungeonTrackEntry {
+  track: string;
+  rank: number;
+}
+
+export interface MythicPlusIlvlResult {
+  end_of_dungeon: { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } };
+  vault: { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } };
+  crest?: string;
+}
+
 export interface SeasonData {
   name: string;
   slug: string;
@@ -33,6 +55,11 @@ export interface SeasonData {
   boss_rank_rules: BossRankRule[];
   crest_suffix: string;
   tier_token_prefixes?: Record<string, string>;
+  keystone_dungeons?: { id: number; name: string; min_item_id?: number }[];
+  dungeon_difficulty_track?: Record<string, DungeonTrackEntry>;
+  mythic_plus_end_of_dungeon?: KeyRangeEntry[];
+  mythic_plus_vault?: KeyRangeEntry[];
+  mythic_plus_crests?: CrestRangeEntry[];
 }
 
 interface BootstrapQuery {
@@ -105,6 +132,72 @@ export function getBossRank(season: SeasonData, bossPosition: number): number {
   }
   // Default: last rule's rank for bosses beyond defined positions
   return season.boss_rank_rules[season.boss_rank_rules.length - 1]?.rank ?? 1;
+}
+
+/** Get the display ilvl for a dungeon item at a given non-M+ difficulty. Returns null for normal (no track). */
+export function getDungeonIlvl(
+  season: SeasonData,
+  difficulty: string,
+): { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } } | null {
+  const entry = season.dungeon_difficulty_track?.[difficulty.toLowerCase()];
+  if (!entry) return null;
+  const ranks = season.track_ranks[entry.track];
+  if (!ranks) return null;
+  const idx = Math.min(entry.rank - 1, ranks.length - 1);
+  const trackInfo = season.tracks[entry.track];
+  return {
+    ilvl: ranks[idx],
+    track: entry.track,
+    rank: entry.rank,
+    upgrade_range: { min: trackInfo.min_ilvl, max: trackInfo.max_ilvl, ranks: trackInfo.ranks },
+  };
+}
+
+/** Find the matching key_range entry for a given key level. */
+function findKeyRange(entries: KeyRangeEntry[], keyLevel: number): KeyRangeEntry | undefined {
+  return entries.find((e) => keyLevel >= e.key_range[0] && keyLevel <= e.key_range[1]);
+}
+
+/** Resolve ilvl info for a M+ key level (end-of-dungeon + vault + crest). */
+export function getMythicPlusIlvl(season: SeasonData, keyLevel: number): MythicPlusIlvlResult | null {
+  const eodEntries = season.mythic_plus_end_of_dungeon;
+  const vaultEntries = season.mythic_plus_vault;
+  if (!eodEntries || !vaultEntries) return null;
+
+  const eod = findKeyRange(eodEntries, keyLevel);
+  const vault = findKeyRange(vaultEntries, keyLevel);
+  if (!eod || !vault) return null;
+
+  const eodRanks = season.track_ranks[eod.track];
+  const vaultRanks = season.track_ranks[vault.track];
+  if (!eodRanks || !vaultRanks) return null;
+
+  const eodTrack = season.tracks[eod.track];
+  const vaultTrack = season.tracks[vault.track];
+
+  let crest: string | undefined;
+  if (season.mythic_plus_crests) {
+    const crestEntry = season.mythic_plus_crests.find(
+      (e) => keyLevel >= e.key_range[0] && keyLevel <= e.key_range[1],
+    );
+    crest = crestEntry?.crest;
+  }
+
+  return {
+    end_of_dungeon: {
+      ilvl: eodRanks[Math.min(eod.rank - 1, eodRanks.length - 1)],
+      track: eod.track,
+      rank: eod.rank,
+      upgrade_range: { min: eodTrack.min_ilvl, max: eodTrack.max_ilvl, ranks: eodTrack.ranks },
+    },
+    vault: {
+      ilvl: vaultRanks[Math.min(vault.rank - 1, vaultRanks.length - 1)],
+      track: vault.track,
+      rank: vault.rank,
+      upgrade_range: { min: vaultTrack.min_ilvl, max: vaultTrack.max_ilvl, ranks: vaultTrack.ranks },
+    },
+    crest,
+  };
 }
 
 /** Write current.yaml to set the active season. */

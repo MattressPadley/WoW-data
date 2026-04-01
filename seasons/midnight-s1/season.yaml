@@ -49,3 +49,82 @@ tier_token_prefixes:
   Alncast: Mail
   Alncured: Leather
   Alnwoven: Cloth
+
+# M+ keystone rotation (journal instance IDs) — 8 dungeons per season
+# M+ keystone rotation (journal instance IDs) — 8 dungeons per season
+# min_item_id: filters out legacy loot pool items below this ID (old expansions only)
+keystone_dungeons:
+  - { id: 1300, name: "Magisters' Terrace" }         # Midnight
+  - { id: 1315, name: "Maisara Caverns" }             # Midnight
+  - { id: 1316, name: "Nexus-Point Xenas" }           # Midnight
+  - { id: 1299, name: "Windrunner Spire" }             # Midnight
+  - { id: 1201, name: "Algeth'ar Academy" }            # Dragonflight
+  - { id: 278,  name: "Pit of Saron", min_item_id: 133000 }        # Wrath
+  - { id: 945,  name: "Seat of the Triumvirate" }     # Legion
+  - { id: 476,  name: "Skyreach", min_item_id: 250000 }            # WoD
+
+# --- Dungeon & M+ loot tables ---
+
+dungeon_difficulty_track:
+  heroic: { track: adventurer, rank: 4 }     # ilvl 230
+  mythic: { track: champion, rank: 1 }       # ilvl 246 (M0)
+
+# End-of-dungeon Challenger's Cache ilvl (caps at +10)
+mythic_plus_end_of_dungeon:
+  - key_range: [2, 3]
+    track: champion
+    rank: 2                                   # ilvl 250
+  - key_range: [4, 4]
+    track: champion
+    rank: 3                                   # ilvl 253
+  - key_range: [5, 5]
+    track: champion
+    rank: 4                                   # ilvl 256
+  - key_range: [6, 7]
+    track: hero
+    rank: 1                                   # ilvl 259
+  - key_range: [8, 9]
+    track: hero
+    rank: 2                                   # ilvl 263
+  - key_range: [10, 99]
+    track: hero
+    rank: 3                                   # ilvl 266 (cap)
+
+# Great Vault reward ilvl (scales up to +18)
+mythic_plus_vault:
+  - key_range: [0, 0]
+    track: champion
+    rank: 4                                   # ilvl 256 (M0 vault)
+  - key_range: [2, 3]
+    track: hero
+    rank: 1                                   # ilvl 259
+  - key_range: [4, 5]
+    track: hero
+    rank: 2                                   # ilvl 263
+  - key_range: [6, 6]
+    track: hero
+    rank: 3                                   # ilvl 266
+  - key_range: [7, 9]
+    track: hero
+    rank: 4                                   # ilvl 269
+  - key_range: [10, 11]
+    track: myth
+    rank: 1                                   # ilvl 272
+  - key_range: [12, 14]
+    track: myth
+    rank: 2                                   # ilvl 276
+  - key_range: [15, 17]
+    track: myth
+    rank: 3                                   # ilvl 279
+  - key_range: [18, 99]
+    track: myth
+    rank: 4                                   # ilvl 282
+
+# Crest type earned at each key level range
+mythic_plus_crests:
+  - key_range: [2, 3]
+    crest: champion
+  - key_range: [4, 8]
+    crest: hero
+  - key_range: [9, 99]
+    crest: myth
