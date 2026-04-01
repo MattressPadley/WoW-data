@@ -1,0 +1,40 @@
+name: Midnight Season 1
+slug: midnight-s1
+expansion: Midnight
+patch: "12.0"
+
+tracks:
+  adventurer: { min_ilvl: 220, max_ilvl: 237, ranks: 6 }
+  veteran:    { min_ilvl: 233, max_ilvl: 250, ranks: 6 }
+  champion:   { min_ilvl: 246, max_ilvl: 263, ranks: 6 }
+  hero:       { min_ilvl: 259, max_ilvl: 276, ranks: 6 }
+  myth:       { min_ilvl: 272, max_ilvl: 289, ranks: 6 }
+
+track_ranks:
+  adventurer: [220, 224, 227, 230, 233, 237]
+  veteran:    [233, 237, 240, 243, 246, 250]
+  champion:   [246, 250, 253, 256, 259, 263]
+  hero:       [259, 263, 266, 269, 272, 276]
+  myth:       [272, 276, 279, 282, 285, 289]
+
+raid_difficulty_track:
+  lfr: veteran
+  normal: champion
+  heroic: hero
+  mythic: myth
+
+# Boss position in encounter list -> starting rank (1-indexed)
+# Boss 1 = rank 1, Boss 2-3 = rank 2, Boss 4-5 = rank 3, Boss 6 = rank 4, rare/last = rank 6
+boss_rank_rules:
+  - positions: [1]
+    rank: 1
+  - positions: [2, 3]
+    rank: 2
+  - positions: [4, 5]
+    rank: 3
+  - positions: [6]
+    rank: 4
+  - positions: [7, 8, 9, 10]
+    rank: 6
+
+crest_suffix: Dawncrest
