@@ -22,8 +22,8 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 | Tool | Purpose | Key flags |
 |------|---------|-----------|
 | `gear-check.ts` | Gear summary with weak slot detection | `--realm` (required), `--name` (required) |
-| `dungeon-loot.ts` | Current season dungeon loot filtered by class | `--realm` + `--name` OR `--class`, `--dungeon`, `--slot` |
-| `upgrades.ts` | Find gear upgrades from season dungeons | `--realm` (required), `--name` (required), `--slots`, `--min-ilvl` |
+| `dungeon-loot.ts` | Current season dungeon loot filtered by class | `--realm` + `--name` OR `--class`, `--spec`, `--dungeon`, `--slot` |
+| `upgrades.ts` | Find gear upgrades from season dungeons | `--realm` (required), `--name` (required), `--spec`, `--slots`, `--min-ilvl` |
 
 ## Workflows
 
@@ -34,6 +34,9 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 
 # All current season dungeon loot filtered for a character's class
 ./run src/dungeon-loot.ts --realm turalyon --name treepunch --pretty
+
+# Filter by spec (narrows to that spec's primary stat)
+./run src/dungeon-loot.ts --class monk --spec ww --pretty
 
 # Filter by slot
 ./run src/dungeon-loot.ts --class monk --slot head --pretty

@@ -38,3 +38,14 @@ boss_rank_rules:
     rank: 6
 
 crest_suffix: Dawncrest
+
+# Tier token prefix → armor type (for class-filtered loot)
+tier_token_prefixes:
+  Voidforged: Plate
+  Voidcast: Mail
+  Voidcured: Leather
+  Voidwoven: Cloth
+  Alnforged: Plate
+  Alncast: Mail
+  Alncured: Leather
+  Alnwoven: Cloth

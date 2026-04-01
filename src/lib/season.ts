@@ -32,6 +32,7 @@ export interface SeasonData {
   raid_difficulty_track: Record<string, string>;
   boss_rank_rules: BossRankRule[];
   crest_suffix: string;
+  tier_token_prefixes?: Record<string, string>;
 }
 
 interface BootstrapQuery {

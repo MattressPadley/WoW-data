@@ -1,6 +1,7 @@
 import type { WoWAPI } from "../api.ts";
-import { getArmorType, isUniversalSlot } from "./class-meta.ts";
+import { getArmorType, isUniversalSlot, isItemForClass } from "./class-meta.ts";
 import { resolveItemDifficultyIlvls, type DifficultyIlvl } from "./item-difficulty.ts";
+import { loadSeason } from "./season.ts";
 
 export interface RaidInfo {
   id: number;
@@ -187,6 +188,7 @@ async function getItemCached(api: WoWAPI, id: number): Promise<any | null> {
 
 export interface RaidLootOptions {
   className?: string;
+  specName?: string;
   difficulty?: string;
   noCache?: boolean;
   seasonSlug?: string;
@@ -198,10 +200,18 @@ export async function getRaidLoot(
   instanceId: number,
   options: RaidLootOptions = {},
 ): Promise<{ boss: string; items: RaidLootItem[] }[]> {
-  const { className, difficulty, noCache = false, seasonSlug } = options;
+  const { className, specName, difficulty, noCache = false, seasonSlug } = options;
   const raid = await getRaidDetail(api, instanceId);
-  const armorType = className ? getArmorType(className) : undefined;
   const results: { boss: string; items: RaidLootItem[] }[] = [];
+
+  // Load tier token prefixes from seasonal data for class filtering
+  let tierTokenPrefixes: Record<string, string> | undefined;
+  if (className) {
+    try {
+      const season = await loadSeason(seasonSlug);
+      tierTokenPrefixes = season.tier_token_prefixes;
+    } catch { /* no seasonal data — skip tier token filtering */ }
+  }
 
   for (const enc of raid.encounters) {
     const encounter = await api.getJournalEncounter(enc.id);
@@ -226,11 +236,17 @@ export async function getRaidLoot(
         if (!slot) continue;
 
         const subclass = d.item.item_subclass?.name;
-        const isArmor = d.item.item_class?.name === "Armor";
+        const itemClassName = d.item.item_class?.name;
 
-        // If class filter, only keep matching armor type or universal slots
-        if (armorType) {
-          const keep = isUniversalSlot(slot) || (isArmor && subclass === armorType);
+        if (className) {
+          const itemStats = (d.item.preview_item?.stats ?? []).map((s: any) => s.type?.name).filter(Boolean);
+          const keep = isItemForClass(className, {
+            itemClass: itemClassName ?? "",
+            itemSubclass: subclass ?? "",
+            slot,
+            stats: itemStats,
+            name: d.item.name ?? d.raw.name,
+          }, tierTokenPrefixes, specName);
           if (!keep) continue;
         }
 

@@ -36,6 +36,13 @@ The `./run` wrapper handles credentials automatically. All output is **JSON**. A
 | Raid loot (Normal default) | `./run src/raid-journal.ts --raid-id <id> --loot` |
 | Raid loot at difficulty | `./run src/raid-journal.ts --raid-id <id> --loot --difficulty heroic` |
 | Loot filtered by class + diff | `./run src/raid-journal.ts --boss-id <id> --loot --class monk --difficulty mythic` |
+| Loot filtered by spec | `./run src/raid-journal.ts --raid-id <id> --loot --class monk --spec ww --difficulty normal` |
+
+### Spec flag
+
+`--spec <spec>` narrows loot to a single spec's primary stat. Requires `--class`. Supports shortcuts: `ww`, `mw`, `brew`, `ret`, `prot`, `holy`, `resto`, `enh`, `ele`, `bm`, `mm`, `surv`, `sub`, `sin`, `boom`, `bear`, `cat`, `havoc`, `veng`/`vdh`, `blood`, `frost`, `unholy`, `fury`, `arms`, `fire`, `arcane`, `demo`, `destro`, `aff`, `disc`, `shadow`, `dev`, `pres`, `aug`.
+
+Without `--spec`, class-level filtering shows items usable by any spec of that class.
 
 ### Difficulty flag
 
@@ -48,6 +55,17 @@ The `./run` wrapper handles credentials automatically. All output is **JSON**. A
 ### Class names
 
 Use any of: warrior, paladin, dk, hunter, shaman, evoker, rogue, monk, dh, druid, mage, warlock, priest. Shortcuts `dk` and `dh` are supported.
+
+### Class/spec filtering details
+
+The `--class` filter handles:
+- **Armor type** — only shows the class's armor (Plate/Mail/Leather/Cloth)
+- **Weapons** — only weapon types the class can equip, filtered by primary stat
+- **Trinkets/rings/necks/cloaks** — filtered by primary stat (secondary-only items pass for all)
+- **Shields** — only for Warrior/Paladin/Shaman
+- **Off-hands** — only for caster-capable classes
+- **Tier tokens** — matched by season prefix (e.g. Voidcured → Leather, Alnwoven → Cloth)
+- **Junk/decor/recipes** — filtered out (except tier tokens)
 
 ## Tool: season.ts
 
@@ -132,6 +150,16 @@ notes/raids/<raid-slug>/
 - Append or update sections, don't overwrite whole files
 - Keep notes concise and actionable — raid-night reference cards
 - Before a raid, read notes + API mechanics for a complete picture
+
+## Presenting loot data
+
+When formatting loot results for the user, always show **all available fields** for each item:
+- **Name, slot, armor type, ilvl** — basics
+- **Stats** — primary and secondary stats
+- **Effects** — proc/on-use text (critical for trinkets and tier tokens — e.g. "Synthesize a soulbound set chest item appropriate for your class" tells you the token slot)
+- **Track and upgrade range** — e.g. Champion 1/6 (246→263)
+
+For tier tokens specifically, always include the effect text since it indicates which gear slot the token creates. Present tokens clearly (e.g. "Tier Token (Chest)" not just the raw item name).
 
 ## Important
 

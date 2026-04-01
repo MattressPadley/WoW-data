@@ -10,7 +10,7 @@
 
 import { WoWAPI } from "./api.ts";
 import { getArg, hasFlag, requireArg, output } from "./utils.ts";
-import { getArmorType } from "./lib/class-meta.ts";
+import { getArmorType, normalizeSpec } from "./lib/class-meta.ts";
 import {
   getCurrentSeasonDungeons,
   getDungeonLoot,
@@ -34,6 +34,8 @@ try {
 
   const className = profile.character_class?.name ?? "Unknown";
   const armorType = getArmorType(className);
+  const specArg = getArg("--spec");
+  const specName = specArg ? normalizeSpec(specArg) : undefined;
 
   const SKIP_SLOTS = new Set(["Shirt", "Tabard"]);
 
@@ -93,7 +95,7 @@ try {
   const allLoot: LootItem[] = [];
   for (const dungeon of dungeons) {
     const bossLoot = await getDungeonLoot(api, dungeon.id);
-    const items = await filterLootForClass(api, bossLoot, dungeon.name, armorType, targetSlots);
+    const items = await filterLootForClass(api, bossLoot, dungeon.name, armorType, targetSlots, className, specName);
     allLoot.push(...items);
   }
 

@@ -5,12 +5,13 @@
  * Usage:
  *   ./run src/dungeon-loot.ts --realm turalyon --name treepunch [--pretty]
  *   ./run src/dungeon-loot.ts --class monk [--slot head] [--pretty]
+ *   ./run src/dungeon-loot.ts --class monk --spec ww [--pretty]                      # spec-filtered
  *   ./run src/dungeon-loot.ts --dungeon "Halls of Atonement" --class monk [--pretty]
  */
 
 import { WoWAPI } from "./api.ts";
 import { getArg, hasFlag, output } from "./utils.ts";
-import { getArmorType } from "./lib/class-meta.ts";
+import { getArmorType, normalizeClass, normalizeSpec } from "./lib/class-meta.ts";
 import {
   getCurrentSeasonDungeons,
   getDungeonLoot,
@@ -23,23 +24,27 @@ const pretty = hasFlag("--pretty");
 try {
   const api = new WoWAPI(getArg("--region") ?? "us");
 
-  // Determine armor type from character or --class flag
+  // Determine class and armor type from character or --class flag
   let armorType: string;
+  let className: string | undefined;
   const classArg = getArg("--class");
   const realm = getArg("--realm");
   const name = getArg("--name");
 
   if (realm && name) {
     const profile = await api.getCharacterProfile(realm, name);
-    armorType = getArmorType(profile.character_class?.name ?? "Unknown");
+    className = profile.character_class?.name ?? "Unknown";
+    armorType = getArmorType(className);
   } else if (classArg) {
-    // Capitalize first letter for lookup
-    const normalized = classArg.charAt(0).toUpperCase() + classArg.slice(1).toLowerCase();
-    armorType = getArmorType(normalized);
+    className = normalizeClass(classArg);
+    armorType = getArmorType(className);
   } else {
     console.error(JSON.stringify({ error: "Provide --realm + --name or --class" }));
     process.exit(1);
   }
+
+  const specArg = getArg("--spec");
+  const specName = specArg && className ? normalizeSpec(specArg) : undefined;
 
   // Optional slot filter
   const slotArg = getArg("--slot");
@@ -64,7 +69,7 @@ try {
   const dungeonResults: { dungeon: string; items: LootItem[] }[] = [];
   for (const dungeon of dungeons) {
     const bossLoot = await getDungeonLoot(api, dungeon.id);
-    const filtered = await filterLootForClass(api, bossLoot, dungeon.name, armorType, slotFilter);
+    const filtered = await filterLootForClass(api, bossLoot, dungeon.name, armorType, slotFilter, className, specName);
     dungeonResults.push({ dungeon: dungeon.name, items: filtered });
   }
 

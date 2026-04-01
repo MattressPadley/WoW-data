@@ -1,5 +1,5 @@
 import type { WoWAPI } from "../api.ts";
-import { isUniversalSlot } from "./class-meta.ts";
+import { isUniversalSlot, isItemForClass } from "./class-meta.ts";
 
 export interface LootItem {
   id: number;
@@ -71,6 +71,8 @@ export async function filterLootForClass(
   dungeonName: string,
   armorType: string,
   slots?: Set<string>,
+  className?: string,
+  specName?: string,
 ): Promise<LootItem[]> {
   // Collect all unique item IDs to fetch
   const itemMap = new Map<number, { bosses: string[]; name: string }>();
@@ -109,14 +111,24 @@ export async function filterLootForClass(
       if (!slot) continue;
 
       const subclass = item.item_subclass?.name;
-      const isArmor = item.item_class?.name === "Armor";
+      const itemClassName = item.item_class?.name;
 
-      // Keep if: universal slot OR matching armor type
-      const keep =
-        isUniversalSlot(slot) ||
-        (isArmor && subclass === armorType);
-
-      if (!keep) continue;
+      // Use comprehensive class filter when className is provided
+      if (className) {
+        const itemStats = (item.preview_item?.stats ?? []).map((s: any) => s.type?.name).filter(Boolean);
+        const keep = isItemForClass(className, {
+          itemClass: itemClassName ?? "",
+          itemSubclass: subclass ?? "",
+          slot,
+          stats: itemStats,
+          name: item.name ?? info.name,
+        }, undefined, specName);
+        if (!keep) continue;
+      } else {
+        const isArmor = itemClassName === "Armor";
+        const keep = isUniversalSlot(slot) || (isArmor && subclass === armorType);
+        if (!keep) continue;
+      }
 
       // Slot filter if specified
       if (slots && !slots.has(normalizeSlot(slot))) continue;

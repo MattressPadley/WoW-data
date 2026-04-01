@@ -10,6 +10,7 @@
  *   ./run src/raid-journal.ts --boss-id 2902 [--pretty]                                       # encounter mechanics
  *   ./run src/raid-journal.ts --raid-id 1273 --loot [--difficulty normal] [--pretty]           # all raid loot
  *   ./run src/raid-journal.ts --raid-id 1273 --loot --class monk [--pretty]                   # loot filtered by class
+ *   ./run src/raid-journal.ts --raid-id 1273 --loot --class monk --spec ww [--pretty]         # loot filtered by spec
  *   ./run src/raid-journal.ts --boss-id 2902 --loot --difficulty heroic [--pretty]             # boss loot at heroic ilvl
  *   ./run src/raid-journal.ts --boss-id 2902 --loot --class paladin --difficulty mythic        # class + difficulty
  */
@@ -24,25 +25,13 @@ import {
   getEncounterDetail,
   getRaidLoot,
 } from "./lib/raid-journal.ts";
-import { getArmorType, isUniversalSlot } from "./lib/class-meta.ts";
+import { getArmorType, isUniversalSlot, isItemForClass, normalizeClass, normalizeSpec } from "./lib/class-meta.ts";
 import { resolveItemDifficultyIlvls } from "./lib/item-difficulty.ts";
+import { loadSeason } from "./lib/season.ts";
 
 const pretty = hasFlag("--pretty");
 const noCache = hasFlag("--no-cache");
 const seasonSlug = getArg("--season");
-
-function normalizeClass(input: string): string {
-  const map: Record<string, string> = {
-    dk: "Death Knight",
-    "death knight": "Death Knight",
-    deathknight: "Death Knight",
-    dh: "Demon Hunter",
-    "demon hunter": "Demon Hunter",
-    demonhunter: "Demon Hunter",
-  };
-  const lower = input.toLowerCase();
-  return map[lower] ?? input.charAt(0).toUpperCase() + input.slice(1).toLowerCase();
-}
 
 try {
   const api = new WoWAPI(getArg("--region") ?? "us");
@@ -53,17 +42,20 @@ try {
   const search = getArg("--search");
   const wantLoot = hasFlag("--loot");
   const classArg = getArg("--class");
+  const specArg = getArg("--spec");
   const difficulty = getArg("--difficulty") ?? "normal";
 
   if (raidId) {
     const id = parseInt(raidId, 10);
     if (wantLoot) {
       const className = classArg ? normalizeClass(classArg) : undefined;
-      const loot = await getRaidLoot(api, id, { className, difficulty, noCache, seasonSlug });
+      const specName = specArg && className ? normalizeSpec(specArg) : undefined;
+      const loot = await getRaidLoot(api, id, { className, specName, difficulty, noCache, seasonSlug });
       const totalItems = loot.reduce((sum, b) => sum + b.items.length, 0);
       output({
         difficulty,
         ...(className ? { class: className, armor_type: getArmorType(className) } : {}),
+        ...(specName ? { spec: specName } : {}),
         bosses: loot,
         total_items: totalItems,
       }, pretty);
@@ -76,11 +68,19 @@ try {
     if (wantLoot) {
       const encounter = await api.getJournalEncounter(id);
       const className = classArg ? normalizeClass(classArg) : undefined;
+      const specName = specArg && className ? normalizeSpec(specArg) : undefined;
       const rawItems = (encounter.items ?? [])
         .filter((item: any) => item?.item?.id)
         .map((item: any) => ({ id: item.item.id, name: item.item.name ?? "Unknown" }));
 
       const armorType = className ? getArmorType(className) : undefined;
+      let tierTokenPrefixes: Record<string, string> | undefined;
+      if (className) {
+        try {
+          const season = await loadSeason(seasonSlug);
+          tierTokenPrefixes = season.tier_token_prefixes;
+        } catch { /* no seasonal data */ }
+      }
       const items: any[] = [];
       for (const raw of rawItems) {
         try {
@@ -88,9 +88,16 @@ try {
           const slot = item.inventory_type?.name;
           if (!slot) continue;
           const subclass = item.item_subclass?.name;
-          const isArmor = item.item_class?.name === "Armor";
-          if (armorType) {
-            const keep = isUniversalSlot(slot) || (isArmor && subclass === armorType);
+          const itemClassName = item.item_class?.name;
+          if (className) {
+            const itemStats = (item.preview_item?.stats ?? []).map((s: any) => s.type?.name).filter(Boolean);
+            const keep = isItemForClass(className, {
+              itemClass: itemClassName ?? "",
+              itemSubclass: subclass ?? "",
+              slot,
+              stats: itemStats,
+              name: item.name ?? raw.name,
+            }, tierTokenPrefixes, specName);
             if (!keep) continue;
           }
           const preview = item.preview_item ?? {};
@@ -133,6 +140,7 @@ try {
         encounter: encounter.name,
         difficulty,
         ...(className ? { class: className, armor_type: armorType } : {}),
+        ...(specName ? { spec: specName } : {}),
         items,
         total_items: items.length,
       }, pretty);
