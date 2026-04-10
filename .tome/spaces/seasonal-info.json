@@ -2,43 +2,43 @@
   "name": "Seasonal Info",
   "scene": {
     "root": {
-      "direction": "v",
-      "ratio": 0.4865100087032202,
+      "direction": "h",
+      "ratio": 0.38,
       "children": [
         {
-          "id": "ilvl-chart",
-          "type": "ilvl-range-chart",
+          "id": "paperdoll",
+          "type": "paperdoll",
           "props": {
-            "title": "Item Level by Track"
+            "title": "Character Sheet"
           }
         },
         {
-          "direction": "h",
-          "ratio": 0.2551834130781499,
+          "direction": "v",
+          "ratio": 0.5,
           "children": [
             {
-              "id": "crest-sources",
-              "type": "crest-sources",
+              "id": "ilvl-chart",
+              "type": "ilvl-range-chart",
               "props": {
-                "title": "Crest Sources"
+                "title": "Item Level by Track"
               }
             },
             {
               "direction": "h",
-              "ratio": 0.5445859159972253,
+              "ratio": 0.4735483870967742,
               "children": [
+                {
+                  "id": "crest-sources",
+                  "type": "crest-sources",
+                  "props": {
+                    "title": "Crest Sources"
+                  }
+                },
                 {
                   "id": "track-sources",
                   "type": "track-sources",
                   "props": {
                     "title": "Track Sources"
-                  }
-                },
-                {
-                  "id": "avg-ilvl-stat",
-                  "type": "stat",
-                  "props": {
-                    "label": "Equipped iLvl"
                   }
                 }
               ]
@@ -117,30 +117,36 @@
           "y": 460
         },
         "links": {
-          "value": {
-            "target": "ilvl-chart",
-            "prop": "gear"
-          }
+          "value": [
+            {
+              "target": "ilvl-chart",
+              "prop": "gear"
+            },
+            {
+              "target": "paperdoll",
+              "prop": "gear"
+            }
+          ]
         },
         "toolName": "gear-check",
         "toolCommand": "summary",
         "toolArgs": ""
       },
       {
-        "id": "data-gear-ilvl",
-        "expression": "@gear-check.summary.character.equipped_ilvl",
+        "id": "data-character",
+        "expression": "@gear-check.summary.character",
         "sourceType": "tool",
         "filePath": "",
-        "drillPath": "character.equipped_ilvl",
-        "outputType": "number",
+        "drillPath": "character",
+        "outputType": "record",
         "position": {
           "x": 40,
           "y": 600
         },
         "links": {
           "value": {
-            "target": "avg-ilvl-stat",
-            "prop": "value"
+            "target": "paperdoll",
+            "prop": "character"
           }
         },
         "toolName": "gear-check",

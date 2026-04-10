@@ -51,10 +51,11 @@ try {
   const char = await resolveCharacter();
   const api = new WoWAPI(char.region);
 
-  const [profile, equipment, season] = await Promise.all([
+  const [profile, equipment, season, charMedia] = await Promise.all([
     api.getCharacterProfile(char.realm, char.name),
     api.getCharacterEquipment(char.realm, char.name),
     loadSeason(),
+    api.getCharacterMedia(char.realm, char.name).catch(() => null),
   ]);
 
   const className = profile.character_class?.name ?? char.class ?? "Unknown";
@@ -102,6 +103,11 @@ try {
       description: s.description ?? null,
     }));
 
+    const enchantments = (item.enchantments ?? []).map((e: any) => ({
+      name: e.display_string ?? e.enchantment?.name ?? null,
+      id: e.enchantment_id ?? null,
+    }));
+
     return {
       slot: item.slot?.name,
       name: item.name,
@@ -118,6 +124,7 @@ try {
       ...(stats.length > 0 ? { stats } : {}),
       ...(sockets.length > 0 ? { sockets } : {}),
       ...(spells.length > 0 ? { spells } : {}),
+      ...(enchantments.length > 0 ? { enchantments } : {}),
       ...(item.unique_equipped ? { unique: item.unique_equipped } : {}),
       ...(item.limit_category ? { limit_category: item.limit_category } : {}),
       ...(item.description ? { flavor_text: item.description } : {}),
@@ -133,6 +140,12 @@ try {
 
   const weakSlots = gear.filter((g: any) => g.ilvl > 0 && g.ilvl < avgIlvl);
 
+  // Extract character media URLs
+  const mediaAssets = charMedia?.assets ?? [];
+  const renderUrl = mediaAssets.find((a: any) => a.key === "main-raw")?.value ?? null;
+  const insetUrl = mediaAssets.find((a: any) => a.key === "inset")?.value ?? null;
+  const avatarUrl = mediaAssets.find((a: any) => a.key === "avatar")?.value ?? null;
+
   output({
     character: {
       name: profile.name,
@@ -143,6 +156,9 @@ try {
       armor_type: armorType,
       average_ilvl: avgIlvl,
       equipped_ilvl: profile.equipped_item_level,
+      ...(renderUrl ? { render: renderUrl } : {}),
+      ...(insetUrl ? { inset: insetUrl } : {}),
+      ...(avatarUrl ? { avatar: avatarUrl } : {}),
     },
     gear,
     weak_slots: weakSlots,
