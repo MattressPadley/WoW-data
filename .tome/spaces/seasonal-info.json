@@ -2,35 +2,48 @@
   "name": "Seasonal Info",
   "scene": {
     "root": {
-      "direction": "h",
-      "ratio": 0.696969696969697,
+      "direction": "v",
+      "ratio": 0.4865100087032202,
       "children": [
         {
-          "direction": "v",
-          "ratio": 0.45,
+          "id": "ilvl-chart",
+          "type": "ilvl-range-chart",
+          "props": {
+            "title": "Item Level by Track"
+          }
+        },
+        {
+          "direction": "h",
+          "ratio": 0.2551834130781499,
           "children": [
-            {
-              "id": "ilvl-chart",
-              "type": "ilvl-range-chart",
-              "props": {
-                "title": "Item Level by Track"
-              }
-            },
             {
               "id": "crest-sources",
               "type": "crest-sources",
               "props": {
                 "title": "Crest Sources"
               }
+            },
+            {
+              "direction": "h",
+              "ratio": 0.5445859159972253,
+              "children": [
+                {
+                  "id": "track-sources",
+                  "type": "track-sources",
+                  "props": {
+                    "title": "Track Sources"
+                  }
+                },
+                {
+                  "id": "avg-ilvl-stat",
+                  "type": "stat",
+                  "props": {
+                    "label": "Equipped iLvl"
+                  }
+                }
+              ]
             }
           ]
-        },
-        {
-          "id": "track-sources",
-          "type": "track-sources",
-          "props": {
-            "title": "Track Sources"
-          }
         }
       ]
     },
@@ -74,6 +87,65 @@
             "prop": "crestSources"
           }
         }
+      },
+      {
+        "id": "data-crafted",
+        "expression": "'seasons/midnight-s1/season.yaml'.crafted",
+        "filePath": "seasons/midnight-s1/season.yaml",
+        "drillPath": "crafted",
+        "outputType": "record",
+        "position": {
+          "x": 40,
+          "y": 320
+        },
+        "links": {
+          "value": {
+            "target": "ilvl-chart",
+            "prop": "crafted"
+          }
+        }
+      },
+      {
+        "id": "data-gear-items",
+        "expression": "@gear-check.summary.gear",
+        "sourceType": "tool",
+        "filePath": "",
+        "drillPath": "gear",
+        "outputType": "list",
+        "position": {
+          "x": 40,
+          "y": 460
+        },
+        "links": {
+          "value": {
+            "target": "ilvl-chart",
+            "prop": "gear"
+          }
+        },
+        "toolName": "gear-check",
+        "toolCommand": "summary",
+        "toolArgs": ""
+      },
+      {
+        "id": "data-gear-ilvl",
+        "expression": "@gear-check.summary.character.equipped_ilvl",
+        "sourceType": "tool",
+        "filePath": "",
+        "drillPath": "character.equipped_ilvl",
+        "outputType": "number",
+        "position": {
+          "x": 40,
+          "y": 600
+        },
+        "links": {
+          "value": {
+            "target": "avg-ilvl-stat",
+            "prop": "value"
+          }
+        },
+        "toolName": "gear-check",
+        "toolCommand": "summary",
+        "toolArgs": ""
       }
     ]
   }

@@ -1,0 +1,15 @@
+{
+  "name": "gear-check",
+  "path": "/Users/mhadley/Dev/wow-data",
+  "runner": "./run",
+  "description": "Character gear with ilvl and upgrade track info",
+  "refreshInterval": 300000,
+  "commands": [
+    {
+      "name": "summary",
+      "file": "src/gear-check.ts",
+      "description": "Gear check for active character",
+      "flags": []
+    }
+  ]
+}

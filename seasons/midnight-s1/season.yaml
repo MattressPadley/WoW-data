@@ -57,6 +57,14 @@ tracks:
       - Mythic +9 and Higher
       - Mythic Great Vault
 
+crafted:
+  rare:
+    min_ilvl: 220
+    max_ilvl: 246
+  epic:
+    min_ilvl: 259
+    max_ilvl: 285
+
 # Crest acquisition sources (drives the seasonal-info crest legend panel).
 # Independent from track.sources because some activities award a crest tier
 # different from the gear ilvl tier they drop.
