@@ -1,48 +1,126 @@
 #!/usr/bin/env bun
 /**
- * character.ts — Query character profile data
+ * character.ts — Query character profile data and manage saved characters
  *
- * Usage:
- *   ./run src/character.ts --realm tichondrius --name thrall [--pretty]                     # profile summary
- *   ./run src/character.ts --realm tichondrius --name thrall --status [--pretty]             # character status
- *   ./run src/character.ts --realm tichondrius --name thrall --equipment [--pretty]          # equipment
- *   ./run src/character.ts --realm tichondrius --name thrall --achievements [--pretty]       # achievements
- *   ./run src/character.ts --realm tichondrius --name thrall --achievements --stats [--pretty] # achievement statistics
- *   ./run src/character.ts --realm tichondrius --name thrall --appearance [--pretty]         # appearance
- *   ./run src/character.ts --realm tichondrius --name thrall --collections [--pretty]        # all collections
- *   ./run src/character.ts --realm tichondrius --name thrall --collections --mounts          # mount collection
- *   ./run src/character.ts --realm tichondrius --name thrall --collections --pets            # pet collection
- *   ./run src/character.ts --realm tichondrius --name thrall --collections --toys            # toy collection
- *   ./run src/character.ts --realm tichondrius --name thrall --collections --heirlooms       # heirloom collection
- *   ./run src/character.ts --realm tichondrius --name thrall --collections --transmogs       # transmog collection
- *   ./run src/character.ts --realm tichondrius --name thrall --encounters [--pretty]         # all encounters
- *   ./run src/character.ts --realm tichondrius --name thrall --encounters --dungeons         # dungeon encounters
- *   ./run src/character.ts --realm tichondrius --name thrall --encounters --raids            # raid encounters
- *   ./run src/character.ts --realm tichondrius --name thrall --media [--pretty]              # character media
- *   ./run src/character.ts --realm tichondrius --name thrall --mythic-keystone [--pretty]    # M+ profile
- *   ./run src/character.ts --realm tichondrius --name thrall --mythic-keystone --season 12   # M+ season
- *   ./run src/character.ts --realm tichondrius --name thrall --professions [--pretty]        # professions
- *   ./run src/character.ts --realm tichondrius --name thrall --pvp [--pretty]                # PvP summary
- *   ./run src/character.ts --realm tichondrius --name thrall --pvp --bracket 2v2             # PvP bracket
- *   ./run src/character.ts --realm tichondrius --name thrall --quests [--pretty]             # quests
- *   ./run src/character.ts --realm tichondrius --name thrall --quests --completed            # completed quests
- *   ./run src/character.ts --realm tichondrius --name thrall --reputations [--pretty]        # reputations
- *   ./run src/character.ts --realm tichondrius --name thrall --soulbinds [--pretty]          # soulbinds
- *   ./run src/character.ts --realm tichondrius --name thrall --specializations [--pretty]    # specializations
- *   ./run src/character.ts --realm tichondrius --name thrall --statistics [--pretty]         # combat statistics
- *   ./run src/character.ts --realm tichondrius --name thrall --titles [--pretty]             # titles
- *   ./run src/character.ts --realm tichondrius --name thrall --hunter-pets [--pretty]        # hunter pets
+ * Management:
+ *   ./run src/character.ts --add --name treepunch --realm turalyon --class monk --spec ww
+ *   ./run src/character.ts --set-active treepunch
+ *   ./run src/character.ts --active [--pretty]
+ *   ./run src/character.ts --list-saved [--pretty]
+ *
+ * Queries (uses active character when --realm/--name omitted):
+ *   ./run src/character.ts [--pretty]                                   # profile summary
+ *   ./run src/character.ts --equipment [--pretty]                       # equipment
+ *   ./run src/character.ts --achievements [--pretty]                    # achievements
+ *   ./run src/character.ts --achievements --stats [--pretty]            # achievement statistics
+ *   ./run src/character.ts --appearance [--pretty]                      # appearance
+ *   ./run src/character.ts --collections [--pretty]                     # all collections
+ *   ./run src/character.ts --collections --mounts                       # mount collection
+ *   ./run src/character.ts --collections --pets                         # pet collection
+ *   ./run src/character.ts --collections --toys                         # toy collection
+ *   ./run src/character.ts --collections --heirlooms                    # heirloom collection
+ *   ./run src/character.ts --collections --transmogs                    # transmog collection
+ *   ./run src/character.ts --encounters [--pretty]                      # all encounters
+ *   ./run src/character.ts --encounters --dungeons                      # dungeon encounters
+ *   ./run src/character.ts --encounters --raids                         # raid encounters
+ *   ./run src/character.ts --media [--pretty]                           # character media
+ *   ./run src/character.ts --mythic-keystone [--pretty]                 # M+ profile
+ *   ./run src/character.ts --mythic-keystone --season 12                # M+ season
+ *   ./run src/character.ts --professions [--pretty]                     # professions
+ *   ./run src/character.ts --pvp [--pretty]                             # PvP summary
+ *   ./run src/character.ts --pvp --bracket 2v2                          # PvP bracket
+ *   ./run src/character.ts --quests [--pretty]                          # quests
+ *   ./run src/character.ts --quests --completed                         # completed quests
+ *   ./run src/character.ts --reputations [--pretty]                     # reputations
+ *   ./run src/character.ts --soulbinds [--pretty]                       # soulbinds
+ *   ./run src/character.ts --specializations [--pretty]                 # specializations
+ *   ./run src/character.ts --statistics [--pretty]                      # combat statistics
+ *   ./run src/character.ts --titles [--pretty]                          # titles
+ *   ./run src/character.ts --hunter-pets [--pretty]                     # hunter pets
+ *   ./run src/character.ts --status [--pretty]                          # character status
  */
 
 import { WoWAPI } from "./api.ts";
-import { getArg, hasFlag, requireArg, output } from "./utils.ts";
+import { getArg, hasFlag, output } from "./utils.ts";
+import { normalizeClass, normalizeSpec } from "./lib/class-meta.ts";
+import {
+  resolveCharacter,
+  listCharacters,
+  getActiveCharacter,
+  saveCharacter,
+  setActiveCharacter,
+} from "./lib/character.ts";
 
 const pretty = hasFlag("--pretty");
 
 try {
-  const api = new WoWAPI(getArg("--region") ?? "us");
-  const realm = requireArg("--realm", "realm slug");
-  const name = requireArg("--name", "character name");
+  // --- Management subcommands ---
+
+  if (hasFlag("--list-saved")) {
+    const slugs = await listCharacters();
+    const active = await getActiveCharacter();
+    output({ characters: slugs, active }, pretty);
+    process.exit(0);
+  }
+
+  if (hasFlag("--active") && !hasFlag("--set-active")) {
+    const active = await getActiveCharacter();
+    if (!active) {
+      output({ error: "No active character set" }, pretty);
+      process.exit(1);
+    }
+    // Load the YAML to show details
+    const { readFile } = await import("node:fs/promises");
+    const yaml = await import("js-yaml");
+    const content = await readFile(`user/characters/${active}.yaml`, "utf-8");
+    const data = yaml.load(content) as Record<string, unknown>;
+    output({ slug: active, ...data }, pretty);
+    process.exit(0);
+  }
+
+  if (hasFlag("--set-active")) {
+    const slug = getArg("--set-active");
+    if (!slug) {
+      output({ error: "--set-active requires a character slug" }, pretty);
+      process.exit(1);
+    }
+    await setActiveCharacter(slug);
+    output({ active: slug }, pretty);
+    process.exit(0);
+  }
+
+  if (hasFlag("--add")) {
+    const name = getArg("--name");
+    const realm = getArg("--realm");
+    if (!name || !realm) {
+      output({ error: "--add requires --name and --realm" }, pretty);
+      process.exit(1);
+    }
+    const classArg = getArg("--class");
+    const specArg = getArg("--spec");
+    const region = getArg("--region");
+
+    const className = classArg ? normalizeClass(classArg) : undefined;
+    const specName = specArg ? normalizeSpec(specArg) : undefined;
+
+    const slug = name.toLowerCase();
+    await saveCharacter(slug, {
+      name: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
+      realm: realm.toLowerCase(),
+      class: className,
+      spec: specName,
+      region,
+    });
+    output({ saved: slug, active: true }, pretty);
+    process.exit(0);
+  }
+
+  // --- API query subcommands ---
+
+  const char = await resolveCharacter();
+  const api = new WoWAPI(char.region);
+  const realm = char.realm;
+  const name = char.name;
 
   let data: any;
 

@@ -35,14 +35,24 @@ async function getItemCached(api: WoWAPI, id: number): Promise<any | null> {
   }
 }
 
-export async function getCurrentSeasonDungeons(api: WoWAPI): Promise<DungeonInfo[]> {
+async function getCurrentSeasonExpansion(api: WoWAPI) {
   const index = await api.getJournalExpansionIndex();
   const currentSeason = index.tiers?.find((t: any) => /current season/i.test(t.name));
   if (!currentSeason) throw new Error("Could not find Current Season in journal expansions");
-  const expansion = await api.getJournalExpansion(currentSeason.id);
+  return api.getJournalExpansion(currentSeason.id);
+}
+
+export async function getCurrentSeasonDungeons(api: WoWAPI): Promise<DungeonInfo[]> {
+  const expansion = await getCurrentSeasonExpansion(api);
   return (expansion.dungeons ?? [])
     .filter((d: any) => !/keystone dungeons/i.test(d.name))
     .map((d: any) => ({ id: d.id, name: d.name }));
+}
+
+export async function getCurrentSeasonRaids(api: WoWAPI): Promise<DungeonInfo[]> {
+  const expansion = await getCurrentSeasonExpansion(api);
+  return (expansion.raids ?? [])
+    .map((r: any) => ({ id: r.id, name: r.name }));
 }
 
 export async function getDungeonLoot(api: WoWAPI, instanceId: number): Promise<RawBossLoot[]> {

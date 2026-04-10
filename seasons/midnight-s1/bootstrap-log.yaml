@@ -1,0 +1,173 @@
+bootstrapped_at: '2026-04-01T05:00:09.372Z'
+sample_item_id: 249343
+queries:
+  - difficulty: lfr
+    bonus_list_id: '12777'
+    rank: 1
+    parsed_ilvl: 233
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12778'
+    rank: 2
+    parsed_ilvl: 237
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12779'
+    rank: 3
+    parsed_ilvl: 240
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12780'
+    rank: 4
+    parsed_ilvl: 243
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12781'
+    rank: 5
+    parsed_ilvl: 246
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12782'
+    rank: 6
+    parsed_ilvl: 250
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12783'
+    rank: 7
+    parsed_ilvl: 253
+    parsed_track: Veteran
+  - difficulty: lfr
+    bonus_list_id: '12784'
+    rank: 8
+    parsed_ilvl: 256
+    parsed_track: Veteran
+  - difficulty: normal
+    bonus_list_id: '12785'
+    rank: 1
+    parsed_ilvl: 246
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12786'
+    rank: 2
+    parsed_ilvl: 250
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12787'
+    rank: 3
+    parsed_ilvl: 253
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12788'
+    rank: 4
+    parsed_ilvl: 256
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12789'
+    rank: 5
+    parsed_ilvl: 259
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12790'
+    rank: 6
+    parsed_ilvl: 263
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12791'
+    rank: 7
+    parsed_ilvl: 266
+    parsed_track: Champion
+  - difficulty: normal
+    bonus_list_id: '12792'
+    rank: 8
+    parsed_ilvl: 269
+    parsed_track: Champion
+  - difficulty: heroic
+    bonus_list_id: '12793'
+    rank: 1
+    parsed_ilvl: 259
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12794'
+    rank: 2
+    parsed_ilvl: 263
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12795'
+    rank: 3
+    parsed_ilvl: 266
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12796'
+    rank: 4
+    parsed_ilvl: 269
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12797'
+    rank: 5
+    parsed_ilvl: 272
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12798'
+    rank: 6
+    parsed_ilvl: 276
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12799'
+    rank: 7
+    parsed_ilvl: 279
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '12800'
+    rank: 8
+    parsed_ilvl: 282
+    parsed_track: Hero
+  - difficulty: heroic
+    bonus_list_id: '13653'
+    rank: 9
+    parsed_ilvl: 44
+    parsed_track: Unknown
+  - difficulty: mythic
+    bonus_list_id: '12801'
+    rank: 1
+    parsed_ilvl: 272
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12802'
+    rank: 2
+    parsed_ilvl: 276
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12803'
+    rank: 3
+    parsed_ilvl: 279
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12804'
+    rank: 4
+    parsed_ilvl: 282
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12805'
+    rank: 5
+    parsed_ilvl: 285
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12806'
+    rank: 6
+    parsed_ilvl: 289
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12807'
+    rank: 7
+    parsed_ilvl: 292
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '12808'
+    rank: 8
+    parsed_ilvl: 295
+    parsed_track: Myth
+  - difficulty: mythic
+    bonus_list_id: '13654'
+    rank: 9
+    parsed_ilvl: 44
+    parsed_track: Unknown

@@ -128,10 +128,10 @@ seasons/
 
 ## Raid Notes System
 
-Raid notes live in `notes/raids/<raid-slug>/` where `<raid-slug>` is the raid name slugified (e.g., `nerubar-palace`, `the-dreamrift`).
+Raid notes live in `user/notes/raids/<raid-slug>/` where `<raid-slug>` is the raid name slugified (e.g., `nerubar-palace`, `the-dreamrift`).
 
 ```
-notes/raids/<raid-slug>/
+user/notes/raids/<raid-slug>/
   overview.md         # Raid-level notes (comp, general strategy)
   <boss-slug>.md      # Per-encounter notes
 ```

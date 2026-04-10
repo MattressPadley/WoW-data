@@ -240,6 +240,126 @@ export function getDelveIlvl(season: SeasonData, tier: number): DelveIlvlResult 
   };
 }
 
+/** Get just the vault ilvl for a key level (works for key 0 / M0 too). */
+export function getMythicPlusVaultIlvl(
+  season: SeasonData,
+  keyLevel: number,
+): { ilvl: number; track: string; rank: number; upgrade_range: { min: number; max: number; ranks: number } } | null {
+  const vaultEntries = season.mythic_plus_vault;
+  if (!vaultEntries) return null;
+  const vault = findKeyRange(vaultEntries, keyLevel);
+  if (!vault) return null;
+  const ranks = season.track_ranks[vault.track];
+  if (!ranks) return null;
+  const trackInfo = season.tracks[vault.track];
+  return {
+    ilvl: ranks[Math.min(vault.rank - 1, ranks.length - 1)],
+    track: vault.track,
+    rank: vault.rank,
+    upgrade_range: { min: trackInfo.min_ilvl, max: trackInfo.max_ilvl, ranks: trackInfo.ranks },
+  };
+}
+
+export interface GearTier {
+  label: string;
+  key_level: number;
+  end_of_dungeon_ilvl: number;
+  vault_ilvl: number;
+  track: string;
+  crest?: string;
+}
+
+/**
+ * Estimate gear tiers (farmable / pushing / cap) based on character ilvl.
+ *
+ * Logic:
+ *   - "farmable": highest key whose end-of-dungeon ilvl is <= your equipped ilvl
+ *     (you outgear these drops — you can clear this content comfortably)
+ *   - "pushing": farmable + 3 key levels (realistic stretch goal)
+ *   - "cap": key level 10 (end-of-dungeon ilvl caps here)
+ *
+ * Returns up to 3 tiers (deduplicates if they collapse to the same key level).
+ */
+export function estimateGearTiers(season: SeasonData, equippedIlvl: number): GearTier[] {
+  const eodEntries = season.mythic_plus_end_of_dungeon;
+  if (!eodEntries) return [];
+
+  // Build a sorted list of distinct key levels from the end-of-dungeon table
+  const keyLevels: number[] = [];
+  for (const entry of eodEntries) {
+    keyLevels.push(entry.key_range[0]);
+    if (entry.key_range[1] !== entry.key_range[0] && entry.key_range[1] < 99) {
+      keyLevels.push(entry.key_range[1]);
+    }
+  }
+  // Add M0 as the base
+  keyLevels.unshift(0);
+  keyLevels.sort((a, b) => a - b);
+
+  // Find farmable key level: highest key whose end-of-dungeon drop ilvl <= equipped ilvl
+  let farmableKey = 0;
+  for (const kl of keyLevels) {
+    const info = kl === 0
+      ? getDungeonIlvl(season, "mythic")
+      : getMythicPlusIlvl(season, kl);
+    if (!info) continue;
+    const dropIlvl = "end_of_dungeon" in info ? info.end_of_dungeon.ilvl : info.ilvl;
+    if (dropIlvl <= equippedIlvl) {
+      farmableKey = kl;
+    } else {
+      break;
+    }
+  }
+
+  // Pushing = farmable + 3, capped at 10
+  const pushingKey = Math.min(farmableKey + 3, 10);
+  const capKey = 10;
+
+  function buildTier(label: string, keyLevel: number): GearTier | null {
+    if (keyLevel === 0) {
+      const info = getDungeonIlvl(season, "mythic");
+      if (!info) return null;
+      // Vault for M0
+      const vaultInfo = getMythicPlusVaultIlvl(season, 0);
+      return {
+        label,
+        key_level: 0,
+        end_of_dungeon_ilvl: info.ilvl,
+        vault_ilvl: vaultInfo?.ilvl ?? info.ilvl,
+        track: info.track,
+      };
+    }
+    const info = getMythicPlusIlvl(season, keyLevel);
+    if (!info) return null;
+    return {
+      label,
+      key_level: keyLevel,
+      end_of_dungeon_ilvl: info.end_of_dungeon.ilvl,
+      vault_ilvl: info.vault.ilvl,
+      track: info.end_of_dungeon.track,
+      crest: info.crest,
+    };
+  }
+
+  const tiers: GearTier[] = [];
+  const seen = new Set<number>();
+
+  const farmable = buildTier("farmable", farmableKey);
+  if (farmable) { tiers.push(farmable); seen.add(farmableKey); }
+
+  if (!seen.has(pushingKey)) {
+    const pushing = buildTier("pushing", pushingKey);
+    if (pushing) { tiers.push(pushing); seen.add(pushingKey); }
+  }
+
+  if (!seen.has(capKey)) {
+    const cap = buildTier("cap", capKey);
+    if (cap) { tiers.push(cap); seen.add(capKey); }
+  }
+
+  return tiers;
+}
+
 /** Write current.yaml to set the active season. */
 export async function setCurrentSeason(slug: string): Promise<void> {
   await Bun.write(`${SEASONS_DIR}/current.yaml`, yaml.dump({ slug }));

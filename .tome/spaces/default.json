@@ -1,0 +1,63 @@
+{
+  "name": "Default",
+  "scene": {
+    "root": {
+      "direction": "h",
+      "ratio": 0.3753322700691122,
+      "children": [
+        {
+          "id": "terminal-z6wavh",
+          "type": "terminal",
+          "props": {}
+        },
+        {
+          "direction": "h",
+          "ratio": 0.8096117929562433,
+          "children": [
+            {
+              "direction": "v",
+              "ratio": 0.5,
+              "children": [
+                {
+                  "id": "fileviewer-tv4pwa",
+                  "type": "fileviewer",
+                  "props": {
+                    "file": ""
+                  },
+                  "links": {
+                    "file": [
+                      {
+                        "target": "files-0sx3ln",
+                        "prop": "file"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "terminal-9qdttz",
+                  "type": "terminal",
+                  "props": {}
+                }
+              ]
+            },
+            {
+              "id": "files-0sx3ln",
+              "type": "files",
+              "props": {
+                "search": true
+              },
+              "links": {
+                "select": [
+                  {
+                    "target": "fileviewer-tv4pwa",
+                    "prop": "file"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

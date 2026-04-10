@@ -2,49 +2,70 @@
 /**
  * dungeon-loot.ts — Current season dungeon loot filtered by class
  *
- * Usage:
- *   ./run src/dungeon-loot.ts --realm turalyon --name treepunch [--pretty]
+ * Usage (active character):
+ *   ./run src/dungeon-loot.ts [--pretty]
+ *   ./run src/dungeon-loot.ts --slot head [--pretty]
+ *
+ * Usage (class-only, no character needed):
  *   ./run src/dungeon-loot.ts --class monk [--slot head] [--pretty]
- *   ./run src/dungeon-loot.ts --class monk --spec ww [--pretty]                      # spec-filtered
- *   ./run src/dungeon-loot.ts --dungeon "Halls of Atonement" --class monk [--pretty]
+ *   ./run src/dungeon-loot.ts --class monk --spec ww [--pretty]
+ *
+ * Usage (explicit character):
+ *   ./run src/dungeon-loot.ts --character treepunch [--pretty]
+ *   ./run src/dungeon-loot.ts --realm turalyon --name treepunch [--pretty]
+ *   ./run src/dungeon-loot.ts --dungeon "Halls of Atonement" [--pretty]
  */
 
 import { WoWAPI } from "./api.ts";
 import { getArg, hasFlag, output } from "./utils.ts";
 import { getArmorType, normalizeClass, normalizeSpec } from "./lib/class-meta.ts";
+import { resolveCharacter } from "./lib/character.ts";
 import {
   getCurrentSeasonDungeons,
   getDungeonLoot,
   filterLootForClass,
   normalizeSlotInput,
+  type LootItem,
 } from "./lib/dungeon-loot.ts";
 
 const pretty = hasFlag("--pretty");
 
 try {
-  const api = new WoWAPI(getArg("--region") ?? "us");
-
-  // Determine class and armor type from character or --class flag
   let armorType: string;
   let className: string | undefined;
-  const classArg = getArg("--class");
-  const realm = getArg("--realm");
-  const name = getArg("--name");
+  let specName: string | undefined;
+  let region = "us";
 
-  if (realm && name) {
-    const profile = await api.getCharacterProfile(realm, name);
-    className = profile.character_class?.name ?? "Unknown";
-    armorType = getArmorType(className);
-  } else if (classArg) {
+  const classArg = getArg("--class");
+
+  if (classArg) {
+    // Class-only mode — no character lookup needed
     className = normalizeClass(classArg);
     armorType = getArmorType(className);
+    const specArg = getArg("--spec");
+    specName = specArg ? normalizeSpec(specArg) : undefined;
+    region = getArg("--region") ?? "us";
   } else {
-    console.error(JSON.stringify({ error: "Provide --realm + --name or --class" }));
-    process.exit(1);
+    // Character mode — resolve from flags, --character, or active character
+    const char = await resolveCharacter();
+    region = char.region;
+
+    if (char.class) {
+      // Class from YAML — skip profile API call
+      className = char.class;
+      armorType = getArmorType(className);
+      specName = getArg("--spec") ? normalizeSpec(getArg("--spec")!) : char.spec;
+    } else {
+      // Need profile API to get class
+      const api = new WoWAPI(region);
+      const profile = await api.getCharacterProfile(char.realm, char.name);
+      className = profile.character_class?.name ?? "Unknown";
+      armorType = getArmorType(className);
+      specName = getArg("--spec") ? normalizeSpec(getArg("--spec")!) : (profile.active_spec?.name ?? char.spec);
+    }
   }
 
-  const specArg = getArg("--spec");
-  const specName = specArg && className ? normalizeSpec(specArg) : undefined;
+  const api = new WoWAPI(region);
 
   // Optional slot filter
   const slotArg = getArg("--slot");

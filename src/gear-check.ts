@@ -2,27 +2,31 @@
 /**
  * gear-check.ts — Character gear summary with weak slot identification
  *
- * Usage:
+ * Usage (active character):
+ *   ./run src/gear-check.ts [--pretty]
+ *
+ * Usage (explicit character):
+ *   ./run src/gear-check.ts --character treepunch [--pretty]
  *   ./run src/gear-check.ts --realm turalyon --name treepunch [--pretty]
  */
 
 import { WoWAPI } from "./api.ts";
-import { getArg, hasFlag, requireArg, output } from "./utils.ts";
+import { hasFlag, output } from "./utils.ts";
 import { getArmorType } from "./lib/class-meta.ts";
+import { resolveCharacter } from "./lib/character.ts";
 
 const pretty = hasFlag("--pretty");
 
 try {
-  const api = new WoWAPI(getArg("--region") ?? "us");
-  const realm = requireArg("--realm", "realm slug");
-  const name = requireArg("--name", "character name");
+  const char = await resolveCharacter();
+  const api = new WoWAPI(char.region);
 
   const [profile, equipment] = await Promise.all([
-    api.getCharacterProfile(realm, name),
-    api.getCharacterEquipment(realm, name),
+    api.getCharacterProfile(char.realm, char.name),
+    api.getCharacterEquipment(char.realm, char.name),
   ]);
 
-  const className = profile.character_class?.name ?? "Unknown";
+  const className = profile.character_class?.name ?? char.class ?? "Unknown";
   const armorType = getArmorType(className);
 
   const SKIP_SLOTS = new Set(["Shirt", "Tabard"]);

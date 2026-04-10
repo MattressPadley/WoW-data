@@ -141,10 +141,10 @@ Seasonal data is shared with the raid-helper skill. See `raid-helper` SKILL.md f
 
 ## Dungeon Notes System
 
-Dungeon notes live in `notes/dungeons/<dungeon-slug>/` where `<dungeon-slug>` is the dungeon name slugified (e.g., `magisters-terrace`, `pit-of-saron`).
+Dungeon notes live in `user/notes/dungeons/<dungeon-slug>/` where `<dungeon-slug>` is the dungeon name slugified (e.g., `magisters-terrace`, `pit-of-saron`).
 
 ```
-notes/dungeons/<dungeon-slug>/
+user/notes/dungeons/<dungeon-slug>/
   overview.md         # Route, general strategy, trash priority
   <boss-slug>.md      # Per-boss notes
 ```

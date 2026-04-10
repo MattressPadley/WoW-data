@@ -10,6 +10,7 @@ import {
   getBossRank,
   getDungeonIlvl,
   getMythicPlusIlvl,
+  getMythicPlusVaultIlvl,
   type SeasonData,
 } from "./season.ts";
 
@@ -86,7 +87,7 @@ export async function resolveDungeonItemIlvls(
 
   const results = new Map<number, DungeonDifficultyIlvl>();
 
-  if (options.keyLevel != null) {
+  if (options.keyLevel != null && options.keyLevel > 0) {
     const mpIlvl = getMythicPlusIlvl(season, options.keyLevel);
     if (!mpIlvl) return results;
 
@@ -101,6 +102,24 @@ export async function resolveDungeonItemIlvls(
         vault_rank: mpIlvl.vault.rank,
         vault_upgrade_range: mpIlvl.vault.upgrade_range,
         crest: mpIlvl.crest,
+      });
+    }
+  } else if (options.keyLevel === 0) {
+    // M0: end-of-dungeon ilvl from dungeon_difficulty_track, vault from mythic_plus_vault
+    const dIlvl = getDungeonIlvl(season, "mythic");
+    if (!dIlvl) return results;
+    const vaultInfo = getMythicPlusVaultIlvl(season, 0);
+
+    for (const itemId of itemIds) {
+      results.set(itemId, {
+        ilvl: dIlvl.ilvl,
+        track: dIlvl.track,
+        rank: dIlvl.rank,
+        upgrade_range: dIlvl.upgrade_range,
+        vault_ilvl: vaultInfo?.ilvl,
+        vault_track: vaultInfo?.track,
+        vault_rank: vaultInfo?.rank,
+        vault_upgrade_range: vaultInfo?.upgrade_range,
       });
     }
   } else if (options.difficulty) {
