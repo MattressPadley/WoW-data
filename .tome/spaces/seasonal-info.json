@@ -1,0 +1,80 @@
+{
+  "name": "Seasonal Info",
+  "scene": {
+    "root": {
+      "direction": "h",
+      "ratio": 0.696969696969697,
+      "children": [
+        {
+          "direction": "v",
+          "ratio": 0.45,
+          "children": [
+            {
+              "id": "ilvl-chart",
+              "type": "ilvl-range-chart",
+              "props": {
+                "title": "Item Level by Track"
+              }
+            },
+            {
+              "id": "crest-sources",
+              "type": "crest-sources",
+              "props": {
+                "title": "Crest Sources"
+              }
+            }
+          ]
+        },
+        {
+          "id": "track-sources",
+          "type": "track-sources",
+          "props": {
+            "title": "Track Sources"
+          }
+        }
+      ]
+    },
+    "dataNodes": [
+      {
+        "id": "data-tracks",
+        "expression": "'seasons/midnight-s1/season.yaml'.tracks",
+        "filePath": "seasons/midnight-s1/season.yaml",
+        "drillPath": "tracks",
+        "outputType": "record",
+        "position": {
+          "x": 40,
+          "y": 40
+        },
+        "links": {
+          "value": [
+            {
+              "target": "ilvl-chart",
+              "prop": "tracks"
+            },
+            {
+              "target": "track-sources",
+              "prop": "tracks"
+            }
+          ]
+        }
+      },
+      {
+        "id": "data-crests",
+        "expression": "'seasons/midnight-s1/season.yaml'.crest_sources",
+        "filePath": "seasons/midnight-s1/season.yaml",
+        "drillPath": "crest_sources",
+        "outputType": "record",
+        "position": {
+          "x": 40,
+          "y": 180
+        },
+        "links": {
+          "value": {
+            "target": "crest-sources",
+            "prop": "crestSources"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -4,11 +4,88 @@ expansion: Midnight
 patch: "12.0"
 
 tracks:
-  adventurer: { min_ilvl: 220, max_ilvl: 237, ranks: 6 }
-  veteran:    { min_ilvl: 233, max_ilvl: 250, ranks: 6 }
-  champion:   { min_ilvl: 246, max_ilvl: 263, ranks: 6 }
-  hero:       { min_ilvl: 259, max_ilvl: 276, ranks: 6 }
-  myth:       { min_ilvl: 272, max_ilvl: 289, ranks: 6 }
+  adventurer:
+    min_ilvl: 220
+    max_ilvl: 237
+    ranks: 6
+    crest: Adventurer Dawncrest
+    sources:
+      - Normal Seasonal Dungeons
+      - Normal Prey Hunts
+      - Delves Tiers 1-4
+      - Outdoor Events
+  veteran:
+    min_ilvl: 233
+    max_ilvl: 250
+    ranks: 6
+    crest: Veteran Dawncrest
+    sources:
+      - Raid Finder
+      - Heroic Seasonal Dungeons
+      - Hard Prey Hunts
+      - Delves Tiers 5-6
+      - Trovehunter's Bounty Tiers 4-5
+  champion:
+    min_ilvl: 246
+    max_ilvl: 263
+    ranks: 6
+    crest: Champion Dawncrest
+    sources:
+      - Normal Raid
+      - Mythic +2-3 Dungeons
+      - Mythic Seasonal Dungeons
+      - Nightmare Prey Hunts
+      - Delves Tiers 7-8
+      - Trovehunter's Bounty Tiers 6-7
+  hero:
+    min_ilvl: 259
+    max_ilvl: 276
+    ranks: 6
+    crest: Hero Dawncrest
+    sources:
+      - Heroic Raid
+      - Mythic +4-8 Dungeons
+      - Heroic Great Vault
+      - Delves Tier 11
+  myth:
+    min_ilvl: 272
+    max_ilvl: 289
+    ranks: 6
+    crest: Myth Dawncrest
+    sources:
+      - Mythic Raid
+      - Mythic +9 and Higher
+      - Mythic Great Vault
+
+# Crest acquisition sources (drives the seasonal-info crest legend panel).
+# Independent from track.sources because some activities award a crest tier
+# different from the gear ilvl tier they drop.
+crest_sources:
+  Myth Dawncrest:
+    - Mythic +9 and Higher
+    - Mythic Raid Bosses
+  Hero Dawncrest:
+    - Mythic +4-8 Dungeons
+    - Heroic Raid Bosses
+    - Delves Tier 11
+    - Trovehunter's Bounty Tiers 8+
+  Champion Dawncrest:
+    - Mythic +2-3 Dungeons
+    - Mythic Seasonal Dungeons
+    - Normal Raid Bosses
+    - Nightmare Prey Hunts
+    - Delves Tiers 7-8
+    - Trovehunter's Bounty Tiers 6-7
+  Veteran Dawncrest:
+    - Heroic Seasonal Dungeons
+    - Raid Finder Bosses
+    - Hard Prey Hunts
+    - Delves Tiers 5-6
+    - Trovehunter's Bounty Tiers 4-5
+  Adventurer Dawncrest:
+    - Outdoor Events
+    - Normal Prey Hunts
+    - Delves Tiers 1-4
 
 track_ranks:
   adventurer: [220, 224, 227, 230, 233, 237]

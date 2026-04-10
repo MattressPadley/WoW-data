@@ -18,18 +18,29 @@
   "files-0sx3ln": {
     "searchQuery": "",
     "expandedDirs": [
-      ".claude",
-      "img"
+      "seasons",
+      ".tome"
     ],
-    "selectedFile": "img/11.0_gear_prog_report.png"
+    "selectedFile": ".tome/spaces/seasonal-info.json",
+    "_scrollTop": 0,
+    "_scrollLeft": 0
   },
   "fileviewer-tv4pwa": {
-    "file": "img/11.0_gear_prog_report.png",
-    "_scrollTop": 23,
-    "_scrollLeft": 0
+    "file": ".tome/spaces/seasonal-info.json",
+    "_scrollTop": 0,
+    "_scrollLeft": 0,
+    "editMode": true
   },
   "issue-viewer": {
     "_scrollTop": 0,
+    "_scrollLeft": 0
+  },
+  "email-history-7shx9n": {
+    "_scrollTop": 1668,
+    "_scrollLeft": 0
+  },
+  "gear-progression-1": {
+    "_scrollTop": 251.5,
     "_scrollLeft": 0
   }
 }
