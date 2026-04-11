@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { colors, fonts, Stack, ScrollArea, SectionHeader, EmptyState, Text, Badge } from "@tome/ui";
 
 interface TrackInfo {
   min_ilvl: number;
@@ -17,19 +18,19 @@ interface Props {
 const TRACK_ORDER = ["myth", "hero", "champion", "veteran", "adventurer"];
 
 const TRACK_COLOR: Record<string, string> = {
-  myth: "var(--tome-chart-5)",
-  hero: "var(--tome-chart-2)",
-  champion: "var(--tome-chart-3)",
-  veteran: "var(--tome-chart-1)",
-  adventurer: "var(--tome-chart-4)",
+  myth: colors.chart5,
+  hero: colors.chart2,
+  champion: colors.chart3,
+  veteran: colors.chart1,
+  adventurer: colors.chart4,
 };
 
 const CREST_COLOR: Record<string, string> = {
-  "Myth Dawncrest": "var(--tome-chart-5)",
-  "Hero Dawncrest": "var(--tome-chart-2)",
-  "Champion Dawncrest": "var(--tome-chart-3)",
-  "Veteran Dawncrest": "var(--tome-chart-1)",
-  "Adventurer Dawncrest": "var(--tome-chart-4)",
+  "Myth Dawncrest": colors.chart5,
+  "Hero Dawncrest": colors.chart2,
+  "Champion Dawncrest": colors.chart3,
+  "Veteran Dawncrest": colors.chart1,
+  "Adventurer Dawncrest": colors.chart4,
 };
 
 function capitalize(s: string): string {
@@ -45,21 +46,17 @@ export default function TrackSources({ tracks, title = "Track Sources", changedF
   const tracksChanged = changedFields?.includes("tracks");
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--tome-bg-primary)", color: "var(--tome-text-primary)", overflow: "hidden" }}>
-      <div style={{ padding: "12px 18px 10px 18px", borderBottom: "1px solid var(--tome-border-primary)", fontSize: 13, fontWeight: 600 }}>
-        {title}
-      </div>
-      <div className={tracksChanged ? "tome-changed" : undefined} style={{ flex: 1, overflow: "auto" }}>
+    <Stack style={{ height: "100%" }}>
+      <SectionHeader>{title}</SectionHeader>
+      <ScrollArea className={tracksChanged ? "tome-changed" : undefined} style={{ flex: 1 }}>
         {rows.length === 0 ? (
-          <div style={{ padding: 18, fontSize: 12, color: "var(--tome-text-disabled)", fontStyle: "italic" }}>
-            No track data loaded. Wire a data node to the <code>tracks</code> prop.
-          </div>
+          <EmptyState>No track data loaded. Wire a data node to the tracks prop.</EmptyState>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "130px 1fr 170px", padding: "10px 16px", fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--tome-text-secondary)", background: "var(--tome-bg-tertiary)", position: "sticky", top: 0 }}>
-              <div>Track</div>
-              <div>Sources</div>
-              <div>Required Crest</div>
+            <div style={{ display: "grid", gridTemplateColumns: "130px 1fr 170px", padding: "10px 16px", background: colors.bgTertiary, position: "sticky", top: 0 }}>
+              <Text size="xs" weight={600} color={colors.textSecondary} uppercase>Track</Text>
+              <Text size="xs" weight={600} color={colors.textSecondary} uppercase>Sources</Text>
+              <Text size="xs" weight={600} color={colors.textSecondary} uppercase>Required Crest</Text>
             </div>
             {rows.map((row) => (
               <div
@@ -68,56 +65,39 @@ export default function TrackSources({ tracks, title = "Track Sources", changedF
                   display: "grid",
                   gridTemplateColumns: "130px 1fr 170px",
                   padding: "12px 16px",
-                  borderTop: "1px solid var(--tome-border-secondary)",
+                  borderTop: `1px solid ${colors.borderSecondary}`,
                   fontSize: 12,
                   alignItems: "start",
                 }}
               >
                 <div>
-                  <div
-                    style={{
-                      display: "inline-block",
-                      padding: "2px 8px",
-                      borderRadius: 4,
-                      background: TRACK_COLOR[row.key] ?? "var(--tome-chart-1)",
-                      color: "var(--tome-text-white)",
-                      fontWeight: 600,
-                      fontSize: 11,
-                    }}
-                  >
+                  <Badge style={{ background: TRACK_COLOR[row.key], color: colors.textWhite }}>
                     {capitalize(row.key)}
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--tome-text-secondary)", marginTop: 4 }}>
+                  </Badge>
+                  <Text size="xs" color={colors.textSecondary} style={{ marginTop: 4 }}>
                     {row.min_ilvl}–{row.max_ilvl} · {row.ranks} ranks
-                  </div>
+                  </Text>
                 </div>
-                <div style={{ color: "var(--tome-text-secondary)", lineHeight: 1.5 }}>
+                <div style={{ color: colors.textSecondary, lineHeight: 1.5 }}>
                   {(row.sources ?? []).map((s, i) => (
                     <div key={i}>{s}</div>
                   ))}
                 </div>
                 <div>
                   {row.crest ? (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "var(--tome-text-primary)",
-                        borderLeft: `3px solid ${CREST_COLOR[row.crest] ?? "var(--tome-text-secondary)"}`,
-                        paddingLeft: 8,
-                      }}
-                    >
+                    <Text size="sm" style={{ borderLeft: `3px solid ${CREST_COLOR[row.crest] ?? colors.textSecondary}`, paddingLeft: 8 }}>
                       {row.crest}
-                    </span>
+                    </Text>
                   ) : (
-                    <span style={{ fontSize: 11, color: "var(--tome-text-disabled)" }}>—</span>
+                    <Text size="sm" color={colors.textDisabled}>—</Text>
                   )}
                 </div>
               </div>
             ))}
           </>
         )}
-      </div>
-    </div>
+      </ScrollArea>
+    </Stack>
   );
 }
 

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useLayoutEffect, useMemo } from "react";
+import React, { useMemo } from "react";
+import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip } from "@tome/ui";
 
 interface GearStat {
   name: string;
@@ -88,12 +89,10 @@ const CLASS_COLOR: Record<string, string> = {
   Warrior: "#C69B6D",
 };
 
-// WoW paperdoll slot layout — left column, right column, bottom row
 const LEFT_SLOTS = ["Head", "Neck", "Shoulders", "Back", "Chest", "Wrist"];
 const RIGHT_SLOTS = ["Hands", "Waist", "Legs", "Feet", "Ring 1", "Ring 2"];
 const BOTTOM_SLOTS = ["Main Hand", "Trinket 1", "Trinket 2", "Off Hand"];
 
-// Fallback slot icons (single-char abbreviations for empty slots)
 const SLOT_ABBR: Record<string, string> = {
   Head: "He", Neck: "Nk", Shoulders: "Sh", Back: "Bk", Chest: "Ch", Wrist: "Wr",
   Hands: "Hn", Waist: "Wa", Legs: "Lg", Feet: "Ft", "Ring 1": "R1", "Ring 2": "R2",
@@ -109,11 +108,7 @@ function capitalize(s: string): string {
 function ItemTooltip({ item }: { item: GearItem }) {
   const qualityColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
   return (
-    <div style={{
-      background: "#1a1a2e", border: "1px solid #444", borderRadius: 4,
-      padding: "10px 12px", minWidth: 220, maxWidth: 300,
-      boxShadow: "0 6px 20px rgba(0,0,0,0.7)", fontFamily: "system-ui, sans-serif",
-    }}>
+    <div style={{ minWidth: 220, maxWidth: 300 }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: qualityColor, lineHeight: 1.2 }}>{item.name}</div>
       <div style={{ fontSize: 12, color: "#ffd100", marginTop: 4 }}>Item Level {item.ilvl}</div>
       {item.source && <div style={{ fontSize: 11, color: "#1eff00", marginTop: 2 }}>{item.source}</div>}
@@ -172,89 +167,29 @@ function ItemTooltip({ item }: { item: GearItem }) {
   );
 }
 
-function PositionedTooltip({ item, anchorRef, side }: { item: GearItem; anchorRef: React.RefObject<HTMLDivElement | null>; side: "left" | "right" | "bottom" }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<React.CSSProperties>({
-    position: "fixed", zIndex: 9999, pointerEvents: "none", visibility: "hidden",
-    top: -9999, left: -9999,
-  });
-
-  useLayoutEffect(() => {
-    if (!ref.current || !anchorRef.current) return;
-    const anchor = anchorRef.current.getBoundingClientRect();
-    const tip = ref.current.getBoundingClientRect();
-    const gap = 8;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let x: number;
-    let y: number;
-
-    if (side === "left") {
-      // Try placing left of anchor, fall back to right
-      x = anchor.left - tip.width - gap;
-      if (x < 4) x = anchor.right + gap;
-      y = anchor.top + anchor.height / 2 - tip.height / 2;
-    } else if (side === "right") {
-      // Try placing right of anchor, fall back to left
-      x = anchor.right + gap;
-      if (x + tip.width > vw - 4) x = anchor.left - tip.width - gap;
-      y = anchor.top + anchor.height / 2 - tip.height / 2;
-    } else {
-      // Bottom slots — try above, fall back below
-      x = anchor.left + anchor.width / 2 - tip.width / 2;
-      y = anchor.top - tip.height - gap;
-      if (y < 4) y = anchor.bottom + gap;
-    }
-
-    // Clamp to viewport
-    if (x < 4) x = 4;
-    if (x + tip.width > vw - 4) x = vw - 4 - tip.width;
-    if (y < 4) y = 4;
-    if (y + tip.height > vh - 4) y = vh - 4 - tip.height;
-
-    setPos({ position: "fixed", zIndex: 9999, pointerEvents: "none", visibility: "visible", top: y, left: x });
-  }, [side, anchorRef]);
-
-  return (
-    <div ref={ref} style={pos}>
-      <ItemTooltip item={item} />
-    </div>
-  );
-}
-
 /* ── Slot cell ── */
 
-function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "right" | "bottom"; size?: number }) {
-  const [hover, setHover] = useState(false);
-  const cellRef = useRef<HTMLDivElement>(null);
+function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "right" | "top"; size?: number }) {
+  const tooltipSide = side === "left" ? "left" : side === "right" ? "right" : "top";
+  const { triggerRef, triggerProps, Tooltip } = useTooltip({ side: tooltipSide, gap: 8 });
   const slotName = item?.slot ?? "";
   const borderColor = item ? (QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff") : "#333";
 
   return (
-    <div
-      ref={cellRef}
-      style={{ position: "relative", cursor: item ? "pointer" : "default" }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div ref={triggerRef} {...triggerProps} style={{ cursor: item ? "pointer" : "default" }}>
       {item?.icon ? (
-        <img
-          src={item.icon} alt={item.name} width={size} height={size}
-          style={{ borderRadius: 4, border: `2px solid ${borderColor}`, display: "block" }}
-        />
+        <img src={item.icon} alt={item.name} width={size} height={size}
+          style={{ borderRadius: 4, border: `2px solid ${borderColor}`, display: "block" }} />
       ) : (
         <div style={{
-          width: size, height: size, borderRadius: 4,
-          border: `2px solid ${borderColor}`,
-          background: "rgba(255,255,255,0.03)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 10, color: "var(--tome-text-disabled)",
+          width: size, height: size, borderRadius: 4, border: `2px solid ${borderColor}`,
+          background: "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, color: colors.textDisabled,
         }}>
           {SLOT_ABBR[slotName] ?? "?"}
         </div>
       )}
-      {hover && item && <PositionedTooltip item={item} anchorRef={cellRef} side={side} />}
+      {item && <Tooltip><ItemTooltip item={item} /></Tooltip>}
     </div>
   );
 }
@@ -262,7 +197,7 @@ function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "
 /* ── Slot row (icon + label + ilvl) ── */
 
 function SlotRow({ item, side, iconSize }: { item?: GearItem; side: "left" | "right"; iconSize: number }) {
-  const ilvlColor = item ? (QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff") : "var(--tome-text-disabled)";
+  const ilvlColor = item ? (QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff") : colors.textDisabled;
   const label = item?.slot ?? "";
 
   if (side === "left") {
@@ -270,10 +205,8 @@ function SlotRow({ item, side, iconSize }: { item?: GearItem; side: "left" | "ri
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <SlotCell item={item} side="left" size={iconSize} />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <div style={{ fontSize: 10, color: "var(--tome-text-disabled)", lineHeight: 1 }}>{label}</div>
-          {item && (
-            <div style={{ fontSize: 12, fontWeight: 600, color: ilvlColor, lineHeight: 1.3 }}>{item.ilvl}</div>
-          )}
+          <Text size="xs" color={colors.textDisabled} style={{ lineHeight: 1 }}>{label}</Text>
+          {item && <Text size="sm" weight={600} color={ilvlColor} style={{ lineHeight: 1.3 }}>{item.ilvl}</Text>}
         </div>
       </div>
     );
@@ -283,10 +216,8 @@ function SlotRow({ item, side, iconSize }: { item?: GearItem; side: "left" | "ri
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
       <SlotCell item={item} side="right" size={iconSize} />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: "var(--tome-text-disabled)", lineHeight: 1 }}>{label}</div>
-        {item && (
-          <div style={{ fontSize: 12, fontWeight: 600, color: ilvlColor, lineHeight: 1.3 }}>{item.ilvl}</div>
-        )}
+        <Text size="xs" color={colors.textDisabled} style={{ lineHeight: 1 }}>{label}</Text>
+        {item && <Text size="sm" weight={600} color={ilvlColor} style={{ lineHeight: 1.3 }}>{item.ilvl}</Text>}
       </div>
     </div>
   );
@@ -301,7 +232,6 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
     return map;
   }, [gear]);
 
-  // Enchantable slots in TWW
   const ENCHANTABLE_SLOTS = ["Back", "Chest", "Wrist", "Legs", "Feet", "Ring 1", "Ring 2", "Main Hand"];
 
   const enchantSummary = useMemo(() => {
@@ -324,63 +254,44 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
     return out;
   }, [gear]);
 
-  const classColor = CLASS_COLOR[character?.class ?? ""] ?? "var(--tome-text-primary)";
+  const classColor = CLASS_COLOR[character?.class ?? ""] ?? colors.textPrimary;
   const hasData = gear && gear.length > 0;
   const changed = changedFields?.includes("gear") || changedFields?.includes("character");
   const iconSize = 40;
 
   return (
-    <div style={{
-      height: "100%", display: "flex", flexDirection: "column",
-      background: "var(--tome-bg-primary)", color: "var(--tome-text-primary)", overflow: "hidden",
-    }}>
-      {/* Header */}
-      {title && (
-        <div style={{
-          padding: "10px 16px", borderBottom: "1px solid var(--tome-border-primary)",
-          fontSize: 13, fontWeight: 600,
-        }}>
-          {title}
-        </div>
-      )}
+    <Stack style={{ height: "100%", overflow: "hidden" }}>
+      {title && <SectionHeader>{title}</SectionHeader>}
 
-      {/* Body */}
       <div
         className={changed ? "tome-changed" : undefined}
         style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
         {!hasData ? (
-          <div style={{ padding: 20, fontSize: 12, color: "var(--tome-text-disabled)", fontStyle: "italic" }}>
-            No gear data loaded. Wire a data node to the <code>gear</code> and <code>character</code> props.
-          </div>
+          <EmptyState>No gear data loaded. Wire a data node to the gear and character props.</EmptyState>
         ) : (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
             {/* Character info bar */}
             <div style={{
               padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
-              borderBottom: "1px solid var(--tome-border-secondary)",
+              borderBottom: `1px solid ${colors.borderSecondary}`,
             }}>
               {character?.avatar && (
                 <img src={character.avatar} alt="" width={32} height={32}
                   style={{ borderRadius: 4, border: `2px solid ${classColor}` }} />
               )}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: classColor }}>{character?.name}</div>
-                <div style={{ fontSize: 11, color: "var(--tome-text-secondary)" }}>
+                <Text size="md" weight={700} color={classColor}>{character?.name}</Text>
+                <Text size="sm" color={colors.textSecondary}>
                   {character?.level} {character?.spec} {character?.class} — {character?.realm}
-                </div>
+                </Text>
               </div>
               <div style={{
                 display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "4px 12px", borderRadius: 6,
-                background: "var(--tome-bg-secondary)",
+                padding: "4px 12px", borderRadius: 6, background: colors.bgSecondary,
               }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--tome-text-primary)" }}>
-                  {character?.equipped_ilvl}
-                </div>
-                <div style={{ fontSize: 9, color: "var(--tome-text-secondary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  ilvl
-                </div>
+                <Text size="lg" weight={700}>{character?.equipped_ilvl}</Text>
+                <Text size="xs" color={colors.textSecondary} uppercase>ilvl</Text>
               </div>
             </div>
 
@@ -406,8 +317,7 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
               }}>
                 {character?.render ? (
                   <img
-                    src={character.render}
-                    alt={character.name ?? "Character"}
+                    src={character.render} alt={character.name ?? "Character"}
                     style={{
                       width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center",
                       filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.6))",
@@ -415,20 +325,11 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
                   />
                 ) : character?.inset ? (
                   <img
-                    src={character.inset}
-                    alt={character.name ?? "Character"}
-                    style={{
-                      width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center",
-                      borderRadius: 8,
-                    }}
+                    src={character.inset} alt={character.name ?? "Character"}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", borderRadius: 8 }}
                   />
                 ) : (
-                  <div style={{
-                    fontSize: 48, color: "var(--tome-text-disabled)", opacity: 0.2,
-                    fontWeight: 700, userSelect: "none",
-                  }}>
-                    ?
-                  </div>
+                  <div style={{ fontSize: 48, color: colors.textDisabled, opacity: 0.2, fontWeight: 700, userSelect: "none" }}>?</div>
                 )}
               </div>
 
@@ -446,22 +347,18 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
             {/* Bottom row — weapons + trinkets */}
             <div style={{
               display: "flex", justifyContent: "center", alignItems: "center",
-              gap: 16, padding: "8px 16px",
-              borderTop: "1px solid var(--tome-border-secondary)",
+              gap: 16, padding: "8px 16px", borderTop: `1px solid ${colors.borderSecondary}`,
             }}>
               {BOTTOM_SLOTS.map((slot) => {
                 const item = gearMap[slot];
                 return (
                   <div key={slot} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                    <SlotCell item={item} side="bottom" size={iconSize} />
-                    <div style={{ fontSize: 9, color: "var(--tome-text-disabled)" }}>{slot}</div>
+                    <SlotCell item={item} side="top" size={iconSize} />
+                    <Text size="xs" color={colors.textDisabled}>{slot}</Text>
                     {item && (
-                      <div style={{
-                        fontSize: 11, fontWeight: 600,
-                        color: QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff",
-                      }}>
+                      <Text size="sm" weight={600} color={QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff"}>
                         {item.ilvl}
-                      </div>
+                      </Text>
                     )}
                   </div>
                 );
@@ -471,19 +368,15 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
             {/* Gems & Enchants summary */}
             <div style={{
               display: "flex", gap: 12, padding: "8px 16px 10px",
-              borderTop: "1px solid var(--tome-border-secondary)",
-              overflowX: "auto", flexShrink: 0,
+              borderTop: `1px solid ${colors.borderSecondary}`, overflowX: "auto", flexShrink: 0,
             }}>
               {/* Gems */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 600, color: "var(--tome-text-secondary)",
-                  textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-                }}>
+                <Text size="xs" weight={600} color={colors.textSecondary} uppercase style={{ marginBottom: 4 }}>
                   Gems ({socketSummary.filter(s => !s.empty).length}/{socketSummary.length})
-                </div>
+                </Text>
                 {socketSummary.length === 0 ? (
-                  <div style={{ fontSize: 11, color: "var(--tome-text-disabled)", fontStyle: "italic" }}>No sockets</div>
+                  <Text size="sm" color={colors.textDisabled} style={{ fontStyle: "italic" }}>No sockets</Text>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {socketSummary.map((s, i) => (
@@ -493,13 +386,13 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
                             fill={s.empty ? "none" : "#1eff00"} stroke={s.empty ? "#666" : "#1eff00"} strokeWidth="1.2" />
                         </svg>
                         <span style={{
-                          fontSize: 11, color: s.empty ? "#ff4444" : "var(--tome-text-primary)",
+                          fontSize: 11, color: s.empty ? "#ff4444" : colors.textPrimary,
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         }}>
-                          <span style={{ color: "var(--tome-text-disabled)" }}>{s.slot}:</span>{" "}
+                          <span style={{ color: colors.textDisabled }}>{s.slot}:</span>{" "}
                           {s.empty ? "Empty" : s.gem}
                           {s.display && !s.empty && (
-                            <span style={{ color: "var(--tome-text-secondary)" }}> ({s.display})</span>
+                            <span style={{ color: colors.textSecondary }}> ({s.display})</span>
                           )}
                         </span>
                       </div>
@@ -510,12 +403,9 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
 
               {/* Enchants */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 600, color: "var(--tome-text-secondary)",
-                  textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-                }}>
+                <Text size="xs" weight={600} color={colors.textSecondary} uppercase style={{ marginBottom: 4 }}>
                   Enchants ({enchantSummary.filter(e => e.enchanted).length}/{enchantSummary.length})
-                </div>
+                </Text>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {enchantSummary.map((e) => (
                     <div key={e.slot} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -525,10 +415,10 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
                         opacity: e.enchanted ? 1 : 0.6,
                       }} />
                       <span style={{
-                        fontSize: 11, color: e.enchanted ? "var(--tome-text-primary)" : "#ff4444",
+                        fontSize: 11, color: e.enchanted ? colors.textPrimary : "#ff4444",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       }}>
-                        <span style={{ color: "var(--tome-text-disabled)" }}>{e.slot}:</span>{" "}
+                        <span style={{ color: colors.textDisabled }}>{e.slot}:</span>{" "}
                         {e.enchanted ? e.name : "Missing"}
                       </span>
                     </div>
@@ -539,7 +429,7 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
           </div>
         )}
       </div>
-    </div>
+    </Stack>
   );
 }
 

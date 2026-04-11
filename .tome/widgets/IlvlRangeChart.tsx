@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useRef, useLayoutEffect } from "react";
+import React, { useMemo } from "react";
+import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip } from "@tome/ui";
 
 interface TrackInfo {
   min_ilvl: number;
@@ -64,12 +65,12 @@ interface Props {
 const TRACK_ORDER = ["myth", "hero", "champion", "veteran", "adventurer"];
 
 const TRACK_COLOR: Record<string, string> = {
-  myth: "var(--tome-chart-5)",
-  hero: "var(--tome-chart-2)",
-  champion: "var(--tome-chart-3)",
-  veteran: "var(--tome-chart-1)",
-  adventurer: "var(--tome-chart-4)",
-  crafted: "var(--tome-chart-6)",
+  myth: colors.chart5,
+  hero: colors.chart2,
+  champion: colors.chart3,
+  veteran: colors.chart1,
+  adventurer: colors.chart4,
+  crafted: colors.chart6,
 };
 
 const QUALITY_COLOR: Record<string, string> = {
@@ -94,96 +95,40 @@ function ItemTooltip({ item }: { item: GearItem }) {
   const qualityColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
 
   return (
-    <div style={{
-      background: "var(--tome-bg-tertiary)",
-      border: "1px solid var(--tome-border-primary)",
-      borderRadius: 4,
-      padding: "10px 12px",
-      minWidth: 220,
-      maxWidth: 300,
-      boxShadow: "0 6px 20px rgba(0,0,0,0.7)",
-      fontFamily: "system-ui, sans-serif",
-    }}>
-      {/* Item name */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: qualityColor, lineHeight: 1.2 }}>
-        {item.name}
-      </div>
-
-      {/* Item level */}
-      <div style={{ fontSize: 12, color: "#ffd100", marginTop: 4 }}>
-        Item Level {item.ilvl}
-      </div>
-
-      {/* Source tag (Raid Finder, Timewarped, Radiance Crafted, etc.) */}
-      {item.source && (
-        <div style={{ fontSize: 11, color: "#1eff00", marginTop: 2 }}>
-          {item.source}
-        </div>
-      )}
-
-      {/* Track info */}
+    <div style={{ minWidth: 220, maxWidth: 300 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: qualityColor, lineHeight: 1.2 }}>{item.name}</div>
+      <div style={{ fontSize: 12, color: "#ffd100", marginTop: 4 }}>Item Level {item.ilvl}</div>
+      {item.source && <div style={{ fontSize: 11, color: "#1eff00", marginTop: 2 }}>{item.source}</div>}
       {item.track && (
         <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 2 }}>
           {capitalize(item.track)} {item.rank}/{item.max_rank}
         </div>
       )}
-
-      {/* Binding */}
-      {item.binding && (
-        <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>
-          {item.binding}
-        </div>
-      )}
-
-      {/* Unique */}
-      {item.unique && (
-        <div style={{ fontSize: 11, color: "#ffffff" }}>
-          {item.unique}
-        </div>
-      )}
-
-      {/* Slot + Armor type */}
+      {item.binding && <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>{item.binding}</div>}
+      {item.unique && <div style={{ fontSize: 11, color: "#ffffff" }}>{item.unique}</div>}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
         <span style={{ fontSize: 11, color: "#ffffff" }}>{item.slot}</span>
         {item.armor_type && <span style={{ fontSize: 11, color: "#ffffff" }}>{item.armor_type}</span>}
       </div>
-
-      {/* Armor value */}
       {item.armor != null && item.armor > 0 && (
-        <div style={{ fontSize: 11, color: "#ffffff", marginTop: 2 }}>
-          {item.armor} Armor
-        </div>
+        <div style={{ fontSize: 11, color: "#ffffff", marginTop: 2 }}>{item.armor} Armor</div>
       )}
-
-      {/* Stats */}
       {item.stats && item.stats.length > 0 && (
         <div style={{ marginTop: 4 }}>
           {item.stats.map((s, i) => (
-            <div key={i} style={{
-              fontSize: 11,
-              color: s.is_equip_bonus ? "#1eff00" : "#ffffff",
-            }}>
+            <div key={i} style={{ fontSize: 11, color: s.is_equip_bonus ? "#1eff00" : "#ffffff" }}>
               +{s.value} {s.name}
             </div>
           ))}
         </div>
       )}
-
-      {/* Sockets */}
       {item.sockets && item.sockets.length > 0 && (
         <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
           {item.sockets.map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              {/* Diamond socket icon */}
               <svg width="12" height="12" viewBox="0 0 12 12" style={{ flexShrink: 0 }}>
-                <rect
-                  x="2" y="2" width="8" height="8"
-                  rx="1"
-                  transform="rotate(45 6 6)"
-                  fill={s.empty ? "none" : "#1eff00"}
-                  stroke={s.empty ? "#666666" : "#1eff00"}
-                  strokeWidth="1.2"
-                />
+                <rect x="2" y="2" width="8" height="8" rx="1" transform="rotate(45 6 6)"
+                  fill={s.empty ? "none" : "#1eff00"} stroke={s.empty ? "#666666" : "#1eff00"} strokeWidth="1.2" />
               </svg>
               <span style={{ fontSize: 11, color: s.empty ? "#ff4444" : "#1eff00" }}>
                 {s.empty ? "Empty Socket" : `${s.gem ?? "Gem"}${s.display ? ` — ${s.display}` : ""}`}
@@ -192,26 +137,14 @@ function ItemTooltip({ item }: { item: GearItem }) {
           ))}
         </div>
       )}
-
-      {/* Spell effects */}
       {item.spells && item.spells.length > 0 && (
         <div style={{ marginTop: 4 }}>
           {item.spells.map((sp, i) => (
-            <div key={i} style={{ fontSize: 11, color: "#1eff00", lineHeight: 1.3 }}>
-              {sp.description}
-            </div>
+            <div key={i} style={{ fontSize: 11, color: "#1eff00", lineHeight: 1.3 }}>{sp.description}</div>
           ))}
         </div>
       )}
-
-      {/* Embellishment limit */}
-      {item.limit_category && (
-        <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>
-          {item.limit_category}
-        </div>
-      )}
-
-      {/* Flavor text */}
+      {item.limit_category && <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>{item.limit_category}</div>}
       {item.flavor_text && (
         <div style={{ fontSize: 11, color: "#ffd100", fontStyle: "italic", marginTop: 4, lineHeight: 1.3 }}>
           &ldquo;{item.flavor_text}&rdquo;
@@ -222,105 +155,22 @@ function ItemTooltip({ item }: { item: GearItem }) {
 }
 
 function ItemIcon({ item, size = 24 }: { item: GearItem; size?: number }) {
-  const [hover, setHover] = useState(false);
+  const { triggerRef, triggerProps, Tooltip } = useTooltip({ side: "top", gap: 6 });
   const borderColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
 
   return (
-    <div
-      style={{ position: "relative", cursor: "pointer" }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div ref={triggerRef} {...triggerProps} style={{ cursor: "pointer" }}>
       {item.icon ? (
-        <img
-          src={item.icon}
-          alt={item.name}
-          width={size}
-          height={size}
-          style={{
-            borderRadius: 3,
-            border: `2px solid ${borderColor}`,
-            display: "block",
-          }}
-        />
+        <img src={item.icon} alt={item.name} width={size} height={size}
+          style={{ borderRadius: 3, border: `2px solid ${borderColor}`, display: "block" }} />
       ) : (
         <div style={{
-          width: size,
-          height: size,
-          borderRadius: 3,
-          border: `2px solid ${borderColor}`,
-          background: "var(--tome-bg-tertiary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 9,
-          color: "var(--tome-text-disabled)",
-        }}>
-          ?
-        </div>
+          width: size, height: size, borderRadius: 3, border: `2px solid ${borderColor}`,
+          background: colors.bgTertiary, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 9, color: colors.textDisabled,
+        }}>?</div>
       )}
-      {hover && <PositionedTooltip item={item} />}
-    </div>
-  );
-}
-
-function PositionedTooltip({ item }: { item: GearItem }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({
-    position: "absolute",
-    bottom: "100%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    marginBottom: 6,
-    zIndex: 9999,
-    pointerEvents: "none" as const,
-    visibility: "hidden" as const,
-  });
-
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const offTop = rect.top < 4;
-    const offLeft = rect.left < 4;
-    const offRight = rect.right > window.innerWidth - 4;
-
-    // Only adjust if clipping
-    if (!offTop && !offLeft && !offRight) {
-      setStyle((s) => ({ ...s, visibility: "visible" }));
-      return;
-    }
-
-    const next: React.CSSProperties = {
-      position: "absolute",
-      zIndex: 9999,
-      pointerEvents: "none",
-      visibility: "visible",
-    };
-
-    if (offTop) {
-      // Flip below the icon
-      next.top = "100%";
-      next.marginTop = 6;
-    } else {
-      next.bottom = "100%";
-      next.marginBottom = 6;
-    }
-
-    if (offRight) {
-      next.right = 0;
-    } else if (offLeft) {
-      next.left = 0;
-    } else {
-      next.left = "50%";
-      next.transform = "translateX(-50%)";
-    }
-
-    setStyle(next);
-  }, []);
-
-  return (
-    <div ref={ref} style={style}>
-      <ItemTooltip item={item} />
+      <Tooltip><ItemTooltip item={item} /></Tooltip>
     </div>
   );
 }
@@ -354,7 +204,6 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
     return { chartMin: lo - pad, chartMax: hi + pad };
   }, [allRanges]);
 
-  // Group gear by track; crafted items go to "crafted-epic" or "crafted-rare" based on ilvl
   const gearByTrack = useMemo(() => {
     const map: Record<string, GearItem[]> = {};
     if (!gear) return map;
@@ -362,7 +211,6 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
       if (!g.ilvl) continue;
       let key: string | null = null;
       if (g.crafted) {
-        // Place on the appropriate crafted row by ilvl range
         if (crafted?.epic && g.ilvl >= crafted.epic.min_ilvl) key = "crafted-epic";
         else if (crafted?.rare) key = "crafted-rare";
       } else if (g.track) {
@@ -381,15 +229,11 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
   const rowHeight = hasGear ? 72 : 18;
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: "var(--tome-bg-primary)", color: "var(--tome-text-primary)", overflow: "visible" }}>
-      <div style={{ padding: "12px 18px 10px 18px", borderBottom: "1px solid var(--tome-border-primary)", fontSize: 13, fontWeight: 600 }}>
-        {title}
-      </div>
+    <Stack style={{ height: "100%", overflow: "visible" }}>
+      <SectionHeader>{title}</SectionHeader>
       <div className={tracksChanged ? "tome-changed" : undefined} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "18px 18px 12px 18px", overflow: "visible" }}>
         {rows.length === 0 ? (
-          <div style={{ fontSize: 12, color: "var(--tome-text-disabled)", fontStyle: "italic" }}>
-            No track data loaded. Wire a data node to the <code>tracks</code> prop.
-          </div>
+          <EmptyState>No track data loaded. Wire a data node to the tracks prop.</EmptyState>
         ) : (
           <>
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", flex: 1, minHeight: 0 }}>
@@ -401,14 +245,14 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
                   max={row.max_ilvl}
                   chartMin={chartMin}
                   chartMax={chartMax}
-                  color={TRACK_COLOR[row.key] ?? "var(--tome-chart-1)"}
+                  color={TRACK_COLOR[row.key] ?? colors.chart1}
                   labelWidth={labelWidth}
                   gearItems={gearByTrack[row.key]}
                   rowHeight={rowHeight}
                 />
               ))}
               {craftedRows.length > 0 && (
-                <div style={{ borderTop: "1px dashed var(--tome-border-secondary)", marginTop: 4, paddingTop: 4 }}>
+                <div style={{ borderTop: `1px dashed ${colors.borderSecondary}`, marginTop: 4, paddingTop: 4 }}>
                   {craftedRows.map((row) => (
                     <DumbbellRow
                       key={row.key}
@@ -428,19 +272,19 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
             </div>
             <div style={{ display: "flex", marginTop: 10, flexShrink: 0 }}>
               <div style={{ width: labelWidth }} />
-              <div style={{ flex: 1, display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--tome-text-secondary)", paddingTop: 4, borderTop: "1px solid var(--tome-border-secondary)" }}>
+              <div style={{ flex: 1, display: "flex", justifyContent: "space-between", fontSize: 10, color: colors.textSecondary, paddingTop: 4, borderTop: `1px solid ${colors.borderSecondary}` }}>
                 {axisTicks(chartMin, chartMax, 5).map((t) => (
                   <span key={t}>{t}</span>
                 ))}
               </div>
             </div>
-            <div style={{ fontSize: 10, color: "var(--tome-text-secondary)", textAlign: "center", marginTop: 4, flexShrink: 0 }}>
+            <Text size="xs" color={colors.textSecondary} style={{ textAlign: "center", marginTop: 4, flexShrink: 0 }}>
               Item Level
-            </div>
+            </Text>
           </>
         )}
       </div>
-    </div>
+    </Stack>
   );
 }
 
@@ -460,7 +304,6 @@ function DumbbellRow({
     return [...gearItems].sort((a, b) => a.ilvl - b.ilvl);
   }, [gearItems]);
 
-  // Group gear by ilvl so same-level items stack vertically
   const gearStacks = useMemo(() => {
     if (sortedGear.length === 0) return [];
     const groups: { pct: number; items: GearItem[] }[] = [];
@@ -480,58 +323,38 @@ function DumbbellRow({
 
   return (
     <div style={{ display: "flex", alignItems: "flex-end", height: rowHeight, marginBottom: hasGear ? 2 : 0 }}>
-      <div style={{ width: labelWidth, fontSize: 11, color: "var(--tome-text-secondary)", textAlign: "right", paddingRight: 10, paddingBottom: hasGear ? 2 : 0 }}>
+      <Text size="sm" color={colors.textSecondary} style={{ width: labelWidth, textAlign: "right", paddingRight: 10, paddingBottom: hasGear ? 2 : 0 }}>
         {label}
-      </div>
+      </Text>
       <div style={{ flex: 1, position: "relative", height: rowHeight, overflow: "visible" }}>
         {/* Baseline */}
-        <div style={{ position: "absolute", top: barY, left: 0, right: 0, height: 1, background: "var(--tome-border-secondary)" }} />
+        <div style={{ position: "absolute", top: barY, left: 0, right: 0, height: 1, background: colors.borderSecondary }} />
         {/* Range bar */}
         <div style={{ position: "absolute", top: barY - 1, left: `${leftPct}%`, width: `${widthPct}%`, height: 3, background: color, borderRadius: 2 }} />
         {/* Min dot + label */}
         <div style={{ position: "absolute", top: barY - 4, left: `${leftPct}%`, width: 9, height: 9, borderRadius: "50%", background: color, transform: "translateX(-50%)" }} />
-        <div style={{ position: "absolute", top: barY - 16, left: `${leftPct}%`, transform: "translateX(-50%)", fontSize: 9, color: "var(--tome-text-secondary)", whiteSpace: "nowrap" }}>
+        <div style={{ position: "absolute", top: barY - 16, left: `${leftPct}%`, transform: "translateX(-50%)", fontSize: 9, color: colors.textSecondary, whiteSpace: "nowrap" }}>
           {min}
         </div>
         {/* Max dot + label */}
         <div style={{ position: "absolute", top: barY - 4, left: `${leftPct + widthPct}%`, width: 9, height: 9, borderRadius: "50%", background: color, transform: "translateX(-50%)" }} />
-        <div style={{ position: "absolute", top: barY - 16, left: `${leftPct + widthPct}%`, transform: "translateX(-50%)", fontSize: 9, color: "var(--tome-text-primary)", fontWeight: 600, whiteSpace: "nowrap" }}>
+        <div style={{ position: "absolute", top: barY - 16, left: `${leftPct + widthPct}%`, transform: "translateX(-50%)", fontSize: 9, color: colors.textPrimary, fontWeight: 600, whiteSpace: "nowrap" }}>
           {max}
         </div>
-        {/* Gear markers — same-ilvl items stack vertically, overflow upward */}
+        {/* Gear markers */}
         {gearStacks.map((stack, si) => (
           <div
             key={`stack-${si}`}
             style={{
-              position: "absolute",
-              left: `${stack.pct}%`,
-              bottom: rowHeight - barY,
-              transform: "translateX(-50%)",
-              display: "flex",
-              flexDirection: "column-reverse",
-              alignItems: "center",
-              zIndex: 10,
+              position: "absolute", left: `${stack.pct}%`, bottom: rowHeight - barY,
+              transform: "translateX(-50%)", display: "flex", flexDirection: "column-reverse",
+              alignItems: "center", zIndex: 10,
             }}
           >
-            {/* Arrow line from stack down to bar */}
-            <div style={{
-              width: 1,
-              height: 4,
-              background: "var(--tome-text-disabled)",
-              opacity: 0.6,
-            }} />
-            {/* ilvl text */}
-            <div style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--tome-text-primary)",
-              whiteSpace: "nowrap",
-              lineHeight: 1,
-              marginBottom: 2,
-            }}>
+            <div style={{ width: 1, height: 4, background: colors.textDisabled, opacity: 0.6 }} />
+            <Text size="sm" weight={600} style={{ whiteSpace: "nowrap", lineHeight: 1, marginBottom: 2 }}>
               {stack.items[0].ilvl}
-            </div>
-            {/* Stacked icons — bottom to top */}
+            </Text>
             {stack.items.map((item, ii) => (
               <div key={`${item.slot}-${ii}`} style={{ marginBottom: 1 }}>
                 <ItemIcon item={item} size={24} />
