@@ -358,11 +358,39 @@ export const meta = {
 
 - **Default export**: React function component. Receives all props from the scene definition plus `emit`, `savedState`, `saveState`, `changedFields`.
 - **Named export `meta`**: `{ type: string, description: string, ports?: {...} }`. Type must be kebab-case and not conflict with built-in types. **`type` must be the first property in the meta object** (the server validates via regex).
-- **Available imports**: `react` only (all hooks: useState, useEffect, useCallback, useMemo, useRef, etc.). No npm packages.
-- **Styling**: Use inline styles with CSS variables (see Theme Variables below). The widget fills its container (`height: 100%`).
+- **Available imports**: `react` (all hooks), `@tome/ui` (shared UI primitives — layout, text, forms, overlays, feedback, hooks). No npm packages.
+- **Styling**: Use inline styles with `colors`/`fonts` from `@tome/ui` or CSS variables directly. The widget fills its container (`height: 100%`).
 - **Emitting actions**: Call `emit("action-name", payload)` to trigger widget links.
 - **Persisting state**: Call `saveState({ key: value })`. Read from `savedState`.
 - **Change signals**: `changedFields` is an array of prop names that just updated via links (auto-clears after 1.5s). Apply the `tome-changed` CSS class to flash elements: `className={changedFields?.includes("value") ? "tome-changed" : ""}`.
+
+### UI Primitives (`@tome/ui`)
+
+Widgets can import a comprehensive set of shared UI primitives. Always prefer these over hand-rolling UI — they handle theming, positioning, portal rendering, and keyboard dismissal automatically.
+
+```tsx
+import { colors, fonts, Stack, ScrollArea, Card, Text, Button, TextInput, ... } from "@tome/ui";
+```
+
+**Theme tokens:** `colors` (60+ CSS var references), `fonts` (sizes/families/weights), `chartColors` (array of 8).
+
+**Layout:** `Stack` (flex column/row), `ScrollArea` (scrollable region, forwardRef), `Card` (panel with bg/border/radius).
+
+**Text & display:** `Text` (size/weight/color/mono/truncate/uppercase), `SectionHeader` (sticky header label), `Badge` (status pill: info/success/warning/error/neutral), `EmptyState` (centered placeholder).
+
+**Form controls:** `Button` (primary/secondary/danger/ghost), `TextInput`, `Textarea`, `Select` (with options), `Toggle` (switch), `Slider` (range), `IconButton` (square ghost).
+
+**Interactive:** `ListItem` (hoverable row with selected state), `Collapsible` (expand/collapse with disclosure triangle), `Tabs` (horizontal tab bar).
+
+**Overlays (portal-based):**
+- `useTooltip({ side, gap, delay })` → `{ triggerRef, triggerProps, Tooltip }`
+- `usePopover({ side, gap })` → `{ triggerRef, triggerProps, Popover, close }`
+- `<Modal isOpen onClose title>` — centered dialog with backdrop
+- `<Portal>` — low-level overlay escape hatch
+
+**Feedback:** `AlertBanner` (severity banner), `ProgressBar`, `Skeleton` (loading placeholder).
+
+**Hooks:** `useScrollRestore({ savedState, saveState })` (scroll persistence), `useHover()` (hover state).
 
 ### Theme Variables
 

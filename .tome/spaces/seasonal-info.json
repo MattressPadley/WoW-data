@@ -3,13 +3,25 @@
   "scene": {
     "root": {
       "direction": "h",
-      "ratio": 0.38,
+      "ratio": 0.40585106382978725,
       "children": [
         {
           "id": "paperdoll",
           "type": "paperdoll",
           "props": {
             "title": "Character Sheet"
+          },
+          "links": {
+            "selectCharacter": [
+              {
+                "target": "data-gear-items",
+                "prop": "character"
+              },
+              {
+                "target": "data-character",
+                "prop": "character"
+              }
+            ]
           }
         },
         {
@@ -55,8 +67,8 @@
         "drillPath": "tracks",
         "outputType": "record",
         "position": {
-          "x": 40,
-          "y": 40
+          "x": 1113,
+          "y": 149
         },
         "links": {
           "value": [
@@ -78,8 +90,8 @@
         "drillPath": "crest_sources",
         "outputType": "record",
         "position": {
-          "x": 40,
-          "y": 180
+          "x": 339,
+          "y": 850
         },
         "links": {
           "value": {
@@ -95,8 +107,8 @@
         "drillPath": "crafted",
         "outputType": "record",
         "position": {
-          "x": 40,
-          "y": 320
+          "x": 623,
+          "y": 199
         },
         "links": {
           "value": {
@@ -113,8 +125,8 @@
         "drillPath": "gear",
         "outputType": "list",
         "position": {
-          "x": 40,
-          "y": 460
+          "x": 619,
+          "y": 131
         },
         "links": {
           "value": [
@@ -133,6 +145,23 @@
         "toolArgs": ""
       },
       {
+        "id": "data-characters-list",
+        "expression": "'user/characters/*.yaml'",
+        "filePath": "user/characters/*.yaml",
+        "drillPath": "",
+        "outputType": "table",
+        "position": {
+          "x": 219,
+          "y": 221
+        },
+        "links": {
+          "value": {
+            "target": "paperdoll",
+            "prop": "characters"
+          }
+        }
+      },
+      {
         "id": "data-character",
         "expression": "@gear-check.summary.character",
         "sourceType": "tool",
@@ -140,8 +169,8 @@
         "drillPath": "character",
         "outputType": "record",
         "position": {
-          "x": 40,
-          "y": 600
+          "x": 217,
+          "y": 359
         },
         "links": {
           "value": {

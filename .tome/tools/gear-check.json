@@ -9,7 +9,10 @@
       "name": "summary",
       "file": "src/gear-check.ts",
       "description": "Gear check for active character",
-      "flags": []
+      "flags": [],
+      "params": [
+        { "name": "character", "type": "string", "label": "Character", "description": "Character name (matches user/characters/<name>.yaml)", "optional": true }
+      ]
     }
   ]
 }

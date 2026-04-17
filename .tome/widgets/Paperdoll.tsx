@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip } from "@tome/ui";
+import React, { useMemo, useState } from "react";
+import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip, usePopover, ListItem } from "@tome/ui";
 
 interface GearStat {
   name: string;
@@ -56,12 +56,36 @@ interface CharacterInfo {
   avatar?: string;
 }
 
+interface CharacterOption {
+  value: string;
+  label: string;
+  class?: string;
+  spec?: string;
+  realm?: string;
+  level?: number;
+  avatar?: string;
+  equipped_ilvl?: number;
+}
+
+interface RawCharacterRow {
+  name?: string;
+  realm?: string;
+  class?: string;
+  spec?: string;
+  region?: string;
+  _source?: string;
+}
+
 interface Props {
   character?: CharacterInfo;
   gear?: GearItem[];
   title?: string;
+  characters?: (CharacterOption | RawCharacterRow)[];
+  selected?: string;
   changedFields?: string[];
   emit: (action: string, payload: unknown) => void;
+  savedState?: Record<string, unknown>;
+  saveState?: (patch: Record<string, unknown>) => void;
 }
 
 const QUALITY_COLOR: Record<string, string> = {
@@ -223,9 +247,150 @@ function SlotRow({ item, side, iconSize }: { item?: GearItem; side: "left" | "ri
   );
 }
 
+/* ── Character info bar (shared by top bar and dropdown rows) ── */
+
+interface InfoBarFields {
+  name?: string;
+  class?: string;
+  spec?: string;
+  realm?: string;
+  level?: number;
+  avatar?: string;
+  equipped_ilvl?: number;
+}
+
+function CharacterInfoBar({
+  char, nameSlot,
+}: {
+  char: InfoBarFields;
+  /** If provided, replaces the plain name <Text> (used for the clickable trigger on the top bar). */
+  nameSlot?: React.ReactNode;
+}) {
+  const classColor = CLASS_COLOR[char.class ?? ""] ?? colors.textPrimary;
+  const initial = (char.name ?? "?").charAt(0).toUpperCase();
+  return (
+    <div style={{
+      padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%",
+    }}>
+      {char.avatar ? (
+        <img src={char.avatar} alt="" width={32} height={32}
+          style={{ borderRadius: 4, border: `2px solid ${classColor}` }} />
+      ) : (
+        <div style={{
+          width: 32, height: 32, borderRadius: 4, border: `2px solid ${classColor}`,
+          background: colors.bgTertiary, display: "flex", alignItems: "center", justifyContent: "center",
+          color: classColor, fontWeight: 700, fontSize: 14, flexShrink: 0,
+        }}>{initial}</div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {nameSlot ?? <Text size="md" weight={700} color={classColor}>{char.name}</Text>}
+        <Text size="sm" color={colors.textSecondary}>
+          {[char.level, char.spec, char.class].filter(Boolean).join(" ")}
+          {char.realm ? ` — ${char.realm}` : ""}
+        </Text>
+      </div>
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        padding: "4px 12px", borderRadius: 6, background: colors.bgSecondary,
+        opacity: char.equipped_ilvl ? 1 : 0.35,
+      }}>
+        <Text size="lg" weight={700}>{char.equipped_ilvl ?? "—"}</Text>
+        <Text size="xs" color={colors.textSecondary} uppercase>ilvl</Text>
+      </div>
+    </div>
+  );
+}
+
+/* ── Character info bar dropdown (whole bar = trigger) ── */
+
+function CharacterInfoBarSelector({
+  char, characters, selected, onSelect,
+}: {
+  char: InfoBarFields;
+  characters?: CharacterOption[];
+  selected?: string;
+  onSelect: (value: string) => void;
+}) {
+  const { triggerRef, triggerProps, Popover, close } = usePopover({ side: "bottom", gap: 6 });
+  const others = (characters ?? []).filter((o) => o.value !== selected);
+  const classColor = CLASS_COLOR[char.class ?? ""] ?? colors.textPrimary;
+
+  if (others.length === 0) {
+    return <CharacterInfoBar char={char} />;
+  }
+
+  return (
+    <>
+      <div
+        ref={triggerRef as React.RefObject<HTMLDivElement>}
+        {...triggerProps}
+        style={{ cursor: "pointer", userSelect: "none", position: "relative" }}
+      >
+        <CharacterInfoBar
+          char={char}
+          nameSlot={
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Text size="md" weight={700} color={classColor}>{char.name ?? "—"}</Text>
+              <span style={{ fontSize: 10, color: classColor, opacity: 0.6, lineHeight: 1 }}>▾</span>
+            </div>
+          }
+        />
+      </div>
+      <Popover>
+        <div style={{
+          minWidth: 320, padding: 4, background: colors.bgSecondary,
+          border: `1px solid ${colors.borderPrimary}`, borderRadius: 6,
+        }}>
+          {others.map((opt) => (
+            <ListItem
+              key={opt.value}
+              onClick={() => { onSelect(opt.value); close(); }}
+            >
+              <CharacterInfoBar char={opt} />
+            </ListItem>
+          ))}
+        </div>
+      </Popover>
+    </>
+  );
+}
+
 /* ── Main component ── */
 
-export default function Paperdoll({ character, gear, title, changedFields }: Props) {
+export default function Paperdoll({ character, gear, title, characters, selected, changedFields, emit, savedState, saveState }: Props) {
+  const normalizedCharacters: CharacterOption[] = useMemo(() => {
+    if (!characters) return [];
+    return characters.map((raw) => {
+      if ("value" in raw && raw.value) return raw as CharacterOption;
+      const source = (raw as RawCharacterRow)._source ?? "";
+      const slug = source ? source.split("/").pop()!.replace(/\.ya?ml$/i, "") : (raw.name ?? "").toLowerCase();
+      const realm = raw.realm ? raw.realm.charAt(0).toUpperCase() + raw.realm.slice(1) : undefined;
+      return {
+        value: slug,
+        label: raw.name ?? slug,
+        class: raw.class,
+        spec: raw.spec,
+        realm,
+      };
+    });
+  }, [characters]);
+  const [activeSelected, setActiveSelected] = useState<string | undefined>(() => {
+    if (savedState?.selected && typeof savedState.selected === "string") return savedState.selected;
+    return selected;
+  });
+  const effectiveSelected = activeSelected ?? (() => {
+    if (character?.name && normalizedCharacters.length) {
+      const match = normalizedCharacters.find((c) => c.label.toLowerCase() === character.name!.toLowerCase());
+      if (match) return match.value;
+    }
+    return undefined;
+  })();
+  const handleSelect = (value: string) => {
+    setActiveSelected(value);
+    saveState?.({ selected: value });
+    emit("selectCharacter", value);
+  };
+  const handleRefresh = () => { emit("refresh", null); };
   const gearMap = useMemo(() => {
     const map: Record<string, GearItem> = {};
     if (gear) for (const g of gear) map[g.slot] = g;
@@ -272,27 +437,25 @@ export default function Paperdoll({ character, gear, title, changedFields }: Pro
         ) : (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
             {/* Character info bar */}
-            <div style={{
-              padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
-              borderBottom: `1px solid ${colors.borderSecondary}`,
-            }}>
-              {character?.avatar && (
-                <img src={character.avatar} alt="" width={32} height={32}
-                  style={{ borderRadius: 4, border: `2px solid ${classColor}` }} />
-              )}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <Text size="md" weight={700} color={classColor}>{character?.name}</Text>
-                <Text size="sm" color={colors.textSecondary}>
-                  {character?.level} {character?.spec} {character?.class} — {character?.realm}
-                </Text>
-              </div>
-              <div style={{
-                display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "4px 12px", borderRadius: 6, background: colors.bgSecondary,
-              }}>
-                <Text size="lg" weight={700}>{character?.equipped_ilvl}</Text>
-                <Text size="xs" color={colors.textSecondary} uppercase>ilvl</Text>
-              </div>
+            <div style={{ position: "relative", borderBottom: `1px solid ${colors.borderSecondary}` }}>
+              <CharacterInfoBarSelector
+                char={character ?? {}}
+                characters={normalizedCharacters}
+                selected={effectiveSelected}
+                onSelect={handleSelect}
+              />
+              <button
+                onClick={handleRefresh}
+                title="Refresh character data"
+                style={{
+                  position: "absolute", top: 6, right: 6,
+                  width: 24, height: 24, padding: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "transparent", border: `1px solid ${colors.borderSecondary}`,
+                  borderRadius: 4, cursor: "pointer", color: colors.textSecondary,
+                  fontSize: 12, lineHeight: 1,
+                }}
+              >↻</button>
             </div>
 
             {/* Paperdoll grid */}
@@ -440,8 +603,13 @@ export const meta = {
     inputs: [
       { prop: "character", label: "Character Info", type: "record" },
       { prop: "gear", label: "Gear Items", type: "list" },
+      { prop: "characters", label: "Character Options", type: ["table", "list"] },
+      { prop: "selected", label: "Selected Slug", type: "string" },
       { prop: "title", label: "Title", type: "string" },
     ],
-    outputs: [],
+    outputs: [
+      { action: "selectCharacter", label: "Selected Character", type: "string" },
+      { action: "refresh", label: "Refresh", type: "trigger" },
+    ],
   },
 };
