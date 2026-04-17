@@ -181,6 +181,11 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
     return TRACK_ORDER.filter((k) => tracks[k]).map((k) => ({ key: k, ...tracks[k] }));
   }, [tracks]);
 
+  const trackFloor = useMemo(() => {
+    const mins = rows.map((r) => r.min_ilvl).filter((n): n is number => typeof n === "number");
+    return mins.length ? Math.min(...mins) : undefined;
+  }, [rows]);
+
   const craftedRows = useMemo(() => {
     if (!crafted) return [];
     const out: { key: string; label: string; min_ilvl: number; max_ilvl: number }[] = [];
@@ -189,12 +194,17 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
     return out;
   }, [crafted]);
 
+  const visibleGear = useMemo(() => {
+    if (!gear) return [];
+    return gear.filter((g) => g.ilvl > 0 && (trackFloor === undefined || g.ilvl >= trackFloor));
+  }, [gear, trackFloor]);
+
   const allRanges = useMemo(() => {
     const ranges = rows.map((r) => ({ min: r.min_ilvl, max: r.max_ilvl }));
     craftedRows.forEach((c) => ranges.push({ min: c.min_ilvl, max: c.max_ilvl }));
-    if (gear) gear.forEach((g) => { if (g.ilvl > 0) ranges.push({ min: g.ilvl, max: g.ilvl }); });
+    visibleGear.forEach((g) => ranges.push({ min: g.ilvl, max: g.ilvl }));
     return ranges;
-  }, [rows, craftedRows, gear]);
+  }, [rows, craftedRows, visibleGear]);
 
   const { chartMin, chartMax } = useMemo(() => {
     if (allRanges.length === 0) return { chartMin: 200, chartMax: 300 };
@@ -206,8 +216,7 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
 
   const gearByTrack = useMemo(() => {
     const map: Record<string, GearItem[]> = {};
-    if (!gear) return map;
-    for (const g of gear) {
+    for (const g of visibleGear) {
       if (!g.ilvl) continue;
       let key: string | null = null;
       if (g.crafted) {
@@ -221,7 +230,7 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
       map[key].push(g);
     }
     return map;
-  }, [gear, crafted]);
+  }, [visibleGear, crafted]);
 
   const tracksChanged = changedFields?.includes("tracks") || changedFields?.includes("gear");
   const labelWidth = 110;

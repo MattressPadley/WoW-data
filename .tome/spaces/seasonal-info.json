@@ -26,7 +26,7 @@
         },
         {
           "direction": "v",
-          "ratio": 0.5,
+          "ratio": 0.6084284460052678,
           "children": [
             {
               "id": "ilvl-chart",
