@@ -44,7 +44,10 @@ const LOOT_DIR = `${FOREVER_DIR}/loot`;
 const ITEM_STAT_TYPE_FILE = `${ENUM_DIR}/item-stat-type.json`;
 const ITEM_QUALITY_FILE = `${ENUM_DIR}/item-quality.json`;
 const INVENTORY_TYPE_FILE = `${ENUM_DIR}/inventory-type.json`;
+const ITEM_BONDING_FILE = `${ENUM_DIR}/item-bonding.json`;
 const CATALOG_FILE = `${CATALOG_DIR}/items.json`;
+/** Slim projection of {@link CATALOG_FILE} for display surfaces — see {@link ForeverItemView}. */
+const ITEMS_VIEW_FILE = `${CATALOG_DIR}/items-view.json`;
 const LOOT_FILE = `${LOOT_DIR}/dungeon-loot.json`;
 
 export const FOREVER_TABLES = [
@@ -53,11 +56,36 @@ export const FOREVER_TABLES = [
   "ItemEffect",
   "ItemXItemEffect",
   "SpellName",
+  // `Spell` is the text-only companion to `SpellName` — it carries effect descriptions.
+  "Spell",
   "ItemSet",
   "ItemSetSpell",
   "RandPropPoints",
   "AreaTable",
   "Map",
+  // Display: `Item.IconFileDataID` -> icon file name.
+  "ManifestInterfaceData",
+  // Readable class/subclass names (raw ids read badly, especially for weapons).
+  "ItemClass",
+  "ItemSubClass",
+  // Allowable-class/race bitmask -> names.
+  "ChrClasses",
+  "ChrRaces",
+  // Armor derivation. `ArmorLocation` is the per-InventoryType multiplier —
+  // without it every non-chest piece computes at chest values.
+  "ItemArmorTotal",
+  "ItemArmorQuality",
+  "ItemArmorShield",
+  "ArmorLocation",
+  // Weapon damage curves. The caster/wand/thrown curves are separate tables;
+  // forcing those weapons through the physical curve yields silently wrong DPS.
+  "ItemDamageOneHand",
+  "ItemDamageTwoHand",
+  "ItemDamageRanged",
+  "ItemDamageOneHandCaster",
+  "ItemDamageTwoHandCaster",
+  "ItemDamageWand",
+  "ItemDamageThrown",
 ] as const;
 
 export async function resolveForeverBuild(noCache: boolean): Promise<WagoBuild> {
@@ -88,6 +116,7 @@ const ENUM_SOURCES: Record<string, { file: string; table: string; column: string
   ItemStatType: { file: ITEM_STAT_TYPE_FILE, table: "ItemSparse", column: "StatModifier_bonusStat[0]" },
   ItemQuality: { file: ITEM_QUALITY_FILE, table: "ItemSparse", column: "OverallQualityID" },
   InventoryType: { file: INVENTORY_TYPE_FILE, table: "ItemSparse", column: "InventoryType" },
+  ItemBonding: { file: ITEM_BONDING_FILE, table: "ItemSparse", column: "Bonding" },
 };
 
 export async function refreshEnumSnapshots(build: string, noCache: boolean): Promise<EnumSnapshot[]> {
@@ -129,15 +158,17 @@ export interface ForeverEnums {
   statType: EnumSnapshot;
   quality: EnumSnapshot;
   inventoryType: EnumSnapshot;
+  bonding: EnumSnapshot;
 }
 
 export async function loadEnums(): Promise<ForeverEnums> {
-  const [statType, quality, inventoryType] = await Promise.all([
+  const [statType, quality, inventoryType, bonding] = await Promise.all([
     loadEnumSnapshot("ItemStatType"),
     loadEnumSnapshot("ItemQuality"),
     loadEnumSnapshot("InventoryType"),
+    loadEnumSnapshot("ItemBonding"),
   ]);
-  return { statType, quality, inventoryType };
+  return { statType, quality, inventoryType, bonding };
 }
 
 // --- Stat budget ----------------------------------------------------------
@@ -262,11 +293,339 @@ export function computeItemStats(row: Row, budget: StatBudget | null, budgetUnkn
   return stats;
 }
 
+// --- Display enrichment ---------------------------------------------------
+
+/**
+ * `Item.IconFileDataID` → the icon's base file name, lowercased, extension
+ * stripped (e.g. `inv_helmet_23`).
+ *
+ * The *name* is stored, never a URL: the catalog stays CDN-agnostic and the
+ * consumer decides where icon art comes from. `null` when the id is not in
+ * `ManifestInterfaceData`.
+ */
+export function resolveIconName(iconFileDataId: number, manifest: Map<string, Row>): string | null {
+  if (!iconFileDataId) return null;
+  const fileName = manifest.get(String(iconFileDataId))?.["FileName"];
+  if (!fileName) return null;
+  const base = fileName.split(/[\\/]/).pop() ?? fileName;
+  const dot = base.lastIndexOf(".");
+  return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
+}
+
+/**
+ * Spell description `$`-token placeholders, stripped rather than substituted.
+ *
+ * `Spell.Description_lang` is a template: `$s1`/`$o2` are effect values, `$d`
+ * a duration, `$t1` a tick period, `$?…[…][…]` a conditional. Resolving them
+ * needs `SpellEffect`/`SpellDuration` data this path does not ingest, so the
+ * tokens come out and the surrounding prose stays. Inventing a number in their
+ * place would be worse than saying less.
+ */
+export function stripSpellTokens(description: string): string {
+  // `${ … }` maths blocks nest (`${$*$<frostdamage>}`), so peel innermost-first.
+  let text = description;
+  let previous: string;
+  do {
+    previous = text;
+    text = text.replace(/\$\{[^{}]*\}/g, "");
+  } while (text !== previous);
+
+  return (
+    text
+      // Cross-spell references: `$@spelldesc434`.
+      .replace(/\$@\w+/g, "")
+      // Conditionals: `$?cond[then][else]` — drop the whole construct.
+      .replace(/\$\?[^[]*\[[^\]]*\](\[[^\]]*\])?/g, "")
+      // Pluralisers / gendered forms: `$lsecond:seconds;`, `$ghe:she;`.
+      .replace(/\$[lg][^;]*;/gi, "")
+      // Named variables: `$<frostdamage>`.
+      .replace(/\$<[^>]*>/g, "")
+      // Value, duration, tick and name tokens: `$s1`, `$o2`, `$d`, `$t1`, `$n`,
+      // and the cross-spell `$123s1` / `$/1000;s1` forms.
+      .replace(/\$(\/\d+;)?\d*[a-z]+\d*/gi, "")
+      // A `%` stranded by the number it qualified ("by $s1%" -> "by %").
+      .replace(/(^|[\s(])%/gm, "$1")
+      // Tidy the holes the tokens left behind, without eating line breaks.
+      .replace(/[ \t]+([.,;:!?])/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/[ \t]+$/gm, "")
+      .trim()
+  );
+}
+
+/** Names for the set bits of `AllowableClass` / `AllowableRace`. `null` = no restriction. */
+export function decodeAllowMask(mask: bigint, namesById: Map<number, string>): string[] | null {
+  // -1 (all bits) and 0 both mean "everyone" in ItemSparse.
+  if (mask <= 0n) return null;
+  const out: string[] = [];
+  for (const [id, name] of namesById) {
+    if (id >= 1 && (mask & (1n << BigInt(id - 1))) !== 0n) out.push(name);
+  }
+  return out.length > 0 && out.length < namesById.size ? out : null;
+}
+
+// --- Armor ----------------------------------------------------------------
+
+/**
+ * `ArmorLocation`'s per-material column, keyed by the matching `ItemArmorTotal`
+ * column. The two tables name the mail material differently (`Mail` vs
+ * `Chain`); every other name is shared, so this map is the only place that
+ * difference is recorded. Both key sets come from the DB2 headers, not memory.
+ */
+const ARMOR_LOCATION_COLUMN: Record<string, string> = {
+  Cloth: "Clothmodifier",
+  Leather: "Leathermodifier",
+  Mail: "Chainmodifier",
+  Plate: "Platemodifier",
+};
+
+/** `ItemSubClass.DisplayName_lang` for the armor subclass that uses `ItemArmorShield`. */
+const SHIELD_SUBCLASS = "Shield";
+
+export interface ArmorContext {
+  /** `ItemArmorTotal` by item level — per-material base armor. */
+  armorTotal: Map<string, Row>;
+  /** `ItemArmorQuality` by item level (its `ID` *is* the item level) — quality multiplier. */
+  armorQuality: Map<string, Row>;
+  /** `ItemArmorShield` by item level — shields bypass the total/location maths entirely. */
+  armorShield: Map<string, Row>;
+  /** `ArmorLocation` by `InventoryType` — the per-slot multiplier. */
+  armorLocation: Map<string, Row>;
+  enums: ForeverEnums;
+}
+
+function numeric(row: Row | undefined, key: string): number | null {
+  const raw = row?.[key];
+  if (raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The `ArmorLocation` row for an inventory type.
+ *
+ * `InventoryType` has synonym ids that share one enum *name* — 20 ("Chest", the
+ * robe variant) alongside 5, 22 alongside 14 ("Off Hand"). Only the canonical id
+ * carries multipliers; the synonym's row is all-zero. Falling back to the
+ * lowest id with the same snapshotted name keeps robes from computing as 0
+ * armor, and the equivalence comes from the enum snapshot rather than a guess.
+ */
+function armorLocationRow(inventoryTypeId: number, ctx: ArmorContext): Row | undefined {
+  const direct = ctx.armorLocation.get(String(inventoryTypeId));
+  const isLive = (row: Row | undefined) =>
+    row !== undefined && Object.values(ARMOR_LOCATION_COLUMN).some((c) => (numeric(row, c) ?? 0) > 0);
+  if (isLive(direct)) return direct;
+
+  const name = ctx.enums.inventoryType.values[String(inventoryTypeId)];
+  if (!name) return direct;
+  for (const [id, other] of Object.entries(ctx.enums.inventoryType.values)) {
+    if (other !== name || Number(id) === inventoryTypeId) continue;
+    const row = ctx.armorLocation.get(id);
+    if (isLive(row)) return row;
+  }
+  return direct;
+}
+
+export type ArmorResult = { armor: number } | { armor: null; unknown?: string };
+
+/**
+ * Armor value for an item, derived from the engine's armor curves.
+ *
+ * ```
+ * shield     armor = ItemArmorShield[ilvl].Quality_<quality>
+ * otherwise  armor = round( ItemArmorTotal[ilvl].<material>
+ *                          × ItemArmorQuality[ilvl].Qualitymod_<quality>
+ *                          × ArmorLocation[inventoryType].<material>modifier )
+ * ```
+ *
+ * The material is the item's own `ItemSubClass.DisplayName_lang`, matched
+ * against `ItemArmorTotal`'s column headers — an armor subclass with no such
+ * column (Miscellaneous, Libram, Idol, Totem, Cosmetic) carries no armor at all
+ * and returns `null` with no `unknown`, which is different from "we could not
+ * work it out".
+ */
+export function computeArmor(
+  itemClassName: string | null,
+  subclassName: string | null,
+  itemLevel: number,
+  qualityId: number,
+  inventoryTypeId: number,
+  ctx: ArmorContext,
+): ArmorResult {
+  if (itemClassName !== ARMOR_CLASS_NAME) return { armor: null };
+
+  if (subclassName === SHIELD_SUBCLASS) {
+    const row = ctx.armorShield.get(String(itemLevel));
+    const value = numeric(row, `Quality_${qualityId}`);
+    if (value === null) {
+      return { armor: null, unknown: `ItemArmorShield has no ilvl ${itemLevel} / quality ${qualityId} entry` };
+    }
+    return { armor: Math.floor(value + 0.5) };
+  }
+
+  const locationColumn = subclassName ? ARMOR_LOCATION_COLUMN[subclassName] : undefined;
+  // Not an armor-material subclass (rings, necks, trinkets, relics): no armor by design.
+  if (!subclassName || !locationColumn) return { armor: null };
+
+  const base = numeric(ctx.armorTotal.get(String(itemLevel)), subclassName);
+  if (base === null) return { armor: null, unknown: `ItemArmorTotal has no ilvl ${itemLevel} ${subclassName} entry` };
+
+  const qualityMod = numeric(ctx.armorQuality.get(String(itemLevel)), `Qualitymod_${qualityId}`);
+  if (qualityMod === null) {
+    return { armor: null, unknown: `ItemArmorQuality has no ilvl ${itemLevel} / quality ${qualityId} entry` };
+  }
+
+  const locationMod = numeric(armorLocationRow(inventoryTypeId, ctx), locationColumn);
+  if (locationMod === null) {
+    return { armor: null, unknown: `ArmorLocation has no ${locationColumn} for inventory type ${inventoryTypeId}` };
+  }
+  // A genuine zero multiplier means the slot wears no armor (tabard, shirt).
+  if (locationMod === 0) return { armor: null };
+
+  return { armor: Math.floor(base * qualityMod * locationMod + 0.5) };
+}
+
+// --- Weapon damage --------------------------------------------------------
+
+/** `ItemClass.ClassName_lang` values this module branches on. */
+const WEAPON_CLASS_NAME = "Weapon";
+const ARMOR_CLASS_NAME = "Armor";
+
+/**
+ * `ItemSubClass.DisplayName_lang` values with a dedicated damage curve, and the
+ * `ItemDamage*` table each one uses. Checked before the inventory type, because
+ * wands and thrown weapons both sit in a `Ranged` inventory slot.
+ */
+const DAMAGE_CURVE_BY_SUBCLASS: Record<string, string> = {
+  Wand: "ItemDamageWand",
+  Thrown: "ItemDamageThrown",
+};
+
+/** `InventoryType` enum names whose weapons use the ranged curve. */
+const RANGED_SLOT_NAME = "Ranged";
+/** `InventoryType` enum name for two-handed weapons. */
+const TWO_HAND_SLOT_NAME = "Two-Hand";
+
+/**
+ * `ItemSparse.Flags[1]` bit marking a weapon that scales off the *caster*
+ * damage curves (`ItemDamageOneHandCaster` / `ItemDamageTwoHandCaster`) rather
+ * than the physical ones.
+ *
+ * This is the only discriminator the client has for caster-vs-physical: it is
+ * not derivable from subclass or inventory type (a caster dagger and a rogue
+ * dagger are both `Dagger`/`One-Hand`). The selected table is recorded on every
+ * weapon as `damage_curve` so the choice is inspectable rather than implicit.
+ */
+const CASTER_WEAPON_FLAG = 0x200;
+
+export interface WeaponContext {
+  /** `ItemDamage*` tables by name, each indexed by item level. */
+  damageCurves: Map<string, Map<string, Row>>;
+  enums: ForeverEnums;
+}
+
+export interface ForeverWeapon {
+  /** The `ItemDamage*` table this item's numbers came from. */
+  damage_curve: string;
+  /** Swing time in seconds (`ItemSparse.ItemDelay` / 1000). */
+  speed: number;
+  min_damage: number;
+  max_damage: number;
+  /** `(min + max) / 2 / speed`, to one decimal — the same order the client displays. */
+  dps: number;
+  /**
+   * `ItemSparse.DamageType`. Left as a raw id on purpose: this build's wago DBD
+   * metadata publishes no `DamageType` enum, and a school name from memory
+   * would be exactly the kind of guess this module refuses to make.
+   */
+  damage_type_id: number;
+}
+
+export type WeaponResult = { weapon: ForeverWeapon } | { weapon: null; unknown?: string };
+
+/** Which `ItemDamage*` table an item uses, resolved from subclass, slot and flags. */
+export function resolveDamageCurve(
+  subclassName: string | null,
+  inventoryTypeId: number,
+  flags1: number,
+  enums: ForeverEnums,
+): string | null {
+  const bySubclass = subclassName ? DAMAGE_CURVE_BY_SUBCLASS[subclassName] : undefined;
+  if (bySubclass) return bySubclass;
+
+  const slot = enums.inventoryType.values[String(inventoryTypeId)];
+  if (!slot) return null;
+  if (slot === RANGED_SLOT_NAME) return "ItemDamageRanged";
+
+  const caster = (flags1 & CASTER_WEAPON_FLAG) !== 0;
+  if (slot === TWO_HAND_SLOT_NAME) return caster ? "ItemDamageTwoHandCaster" : "ItemDamageTwoHand";
+  return caster ? "ItemDamageOneHandCaster" : "ItemDamageOneHand";
+}
+
+/**
+ * Weapon damage range and DPS.
+ *
+ * ```
+ * average = ItemDamage<curve>[ilvl].Quality_<quality> × speed
+ * min     = floor(average × (1 − DmgVariance / 2))
+ * max     = round(average × (1 + DmgVariance / 2))
+ * dps     = (min + max) / 2 / speed
+ * ```
+ *
+ * The floor/round asymmetry and the DPS-from-rounded-bounds order are the
+ * client's, verified against Blizzard's own Classic Era item data (see
+ * `docs/forever-data.md`).
+ */
+export function computeWeapon(
+  itemClassName: string | null,
+  subclassName: string | null,
+  row: Row,
+  itemLevel: number,
+  qualityId: number,
+  inventoryTypeId: number,
+  ctx: WeaponContext,
+): WeaponResult {
+  if (itemClassName !== WEAPON_CLASS_NAME) return { weapon: null };
+
+  const delayMs = numeric(row, "ItemDelay");
+  if (delayMs === null || delayMs <= 0) return { weapon: null, unknown: "ItemSparse.ItemDelay is missing or zero" };
+  const speed = delayMs / 1000;
+
+  const flags1 = numeric(row, "Flags_1") ?? 0;
+  const curveName = resolveDamageCurve(subclassName, inventoryTypeId, flags1, ctx.enums);
+  if (!curveName) {
+    return { weapon: null, unknown: `inventory type id ${inventoryTypeId} not in InventoryType enum` };
+  }
+  const curve = ctx.damageCurves.get(curveName);
+  const dpsBase = numeric(curve?.get(String(itemLevel)), `Quality_${qualityId}`);
+  if (dpsBase === null) {
+    return { weapon: null, unknown: `${curveName} has no ilvl ${itemLevel} / quality ${qualityId} entry` };
+  }
+
+  const variance = numeric(row, "DmgVariance") ?? 0;
+  const average = dpsBase * speed;
+  const min = Math.floor(average * (1 - variance / 2));
+  const max = Math.floor(average * (1 + variance / 2) + 0.5);
+
+  return {
+    weapon: {
+      damage_curve: curveName,
+      speed,
+      min_damage: min,
+      max_damage: max,
+      dps: Math.round(((min + max) / 2 / speed) * 10) / 10,
+      damage_type_id: Math.trunc(numeric(row, "DamageType") ?? 0),
+    },
+  };
+}
+
 // --- Item catalog ---------------------------------------------------------
 
 export interface ForeverItemEffect {
   spell_id: number;
   spell_name: string | null;
+  /** `Spell.Description_lang` with `$`-token placeholders stripped, never substituted. */
+  spell_description: string | null;
   trigger_type: number;
   charges: number;
   cooldown_ms: number;
@@ -283,7 +642,29 @@ export interface ForeverItem {
   inventory_type: string | null;
   class_id: number | null;
   subclass_id: number | null;
+  /** `ItemClass.ClassName_lang`, e.g. `Weapon`. Null when the class id is unknown. */
+  item_class: string | null;
+  /** `ItemSubClass.DisplayName_lang`, e.g. `Dagger`. Null when the pair is unknown. */
+  item_subclass: string | null;
+  /** Icon *file name* (no path, no extension, lowercased). Null when unresolved. */
+  icon: string | null;
   bonding: number;
+  /** `ItemBonding` enum name for {@link bonding}, e.g. `Bind on Pickup`. */
+  binding: string | null;
+  /** `ItemSparse.Description_lang` — the yellow flavour line. Null when empty. */
+  flavor: string | null;
+  /** Class names from `AllowableClass`. Null when the item is unrestricted. */
+  allowable_classes: string[] | null;
+  /** Race names from `AllowableRace_0/1`. Null when the item is unrestricted. */
+  allowable_races: string[] | null;
+  /** Derived armor value. Null when the item carries none or it could not be derived. */
+  armor: number | null;
+  /** Present only when {@link armor} is null *and* we failed to derive it. */
+  armor_unknown?: string;
+  /** Derived damage range / DPS for weapons. Null for everything else. */
+  weapon: ForeverWeapon | null;
+  /** Present only when {@link weapon} is null *and* we failed to derive it. */
+  weapon_unknown?: string;
   sell_price: number;
   buy_price: number;
   sockets: (string | null)[];
@@ -312,6 +693,9 @@ export interface CatalogMeta {
   zone_count: number;
   map_count: number;
   items_with_computed_stats: number;
+  items_with_icon: number;
+  items_with_armor: number;
+  items_with_weapon_damage: number;
   stat_type_enum_build: string;
 }
 
@@ -348,21 +732,39 @@ function num(row: Row | undefined, key: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Every `ItemDamage*` table {@link resolveDamageCurve} can select. */
+const DAMAGE_CURVE_TABLES = FOREVER_TABLES.filter((t) => t.startsWith("ItemDamage"));
+
 export async function ingestCatalog(build: string, noCache: boolean): Promise<ForeverCatalog> {
   const opts = foreverOptions(build);
-  const [itemSparseText, itemText, itemEffectText, itemXEffectText, spellNameText, itemSetText, itemSetSpellText, rppText, areaText, mapText] =
+  const fetchTable = (name: string) => getCachedCsv(name, noCache, opts);
+  const [itemSparseText, itemText, itemEffectText, itemXEffectText, spellNameText, spellText, itemSetText, itemSetSpellText, rppText, areaText, mapText] =
     await Promise.all([
-      getCachedCsv("ItemSparse", noCache, opts),
-      getCachedCsv("Item", noCache, opts),
-      getCachedCsv("ItemEffect", noCache, opts),
-      getCachedCsv("ItemXItemEffect", noCache, opts),
-      getCachedCsv("SpellName", noCache, opts),
-      getCachedCsv("ItemSet", noCache, opts),
-      getCachedCsv("ItemSetSpell", noCache, opts),
-      getCachedCsv("RandPropPoints", noCache, opts),
-      getCachedCsv("AreaTable", noCache, opts),
-      getCachedCsv("Map", noCache, opts),
+      fetchTable("ItemSparse"),
+      fetchTable("Item"),
+      fetchTable("ItemEffect"),
+      fetchTable("ItemXItemEffect"),
+      fetchTable("SpellName"),
+      fetchTable("Spell"),
+      fetchTable("ItemSet"),
+      fetchTable("ItemSetSpell"),
+      fetchTable("RandPropPoints"),
+      fetchTable("AreaTable"),
+      fetchTable("Map"),
     ]);
+  const [manifestText, itemClassText, itemSubClassText, chrClassesText, chrRacesText, armorTotalText, armorQualityText, armorShieldText, armorLocationText] =
+    await Promise.all([
+      fetchTable("ManifestInterfaceData"),
+      fetchTable("ItemClass"),
+      fetchTable("ItemSubClass"),
+      fetchTable("ChrClasses"),
+      fetchTable("ChrRaces"),
+      fetchTable("ItemArmorTotal"),
+      fetchTable("ItemArmorQuality"),
+      fetchTable("ItemArmorShield"),
+      fetchTable("ArmorLocation"),
+    ]);
+  const damageCurveTexts = await Promise.all(DAMAGE_CURVE_TABLES.map(fetchTable));
 
   const enums = await loadEnums();
   const sparseRows = parseCsv(itemSparseText);
@@ -372,6 +774,31 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
   const effectsByItem = indexByMulti(parseCsv(itemXEffectText), "ItemID");
   // The `Spell` table is text-only; SpellName carries the name.
   const spellNames = indexBy(parseCsv(spellNameText), "ID");
+  const spellText_ = indexBy(parseCsv(spellText), "ID");
+  const iconManifest = indexBy(parseCsv(manifestText), "ID");
+  const classNames = new Map(parseCsv(itemClassText).map((r) => [r["ClassID"] ?? "", r["ClassName_lang"] ?? ""]));
+  const subclassNames = new Map(
+    parseCsv(itemSubClassText).map((r) => [`${r["ClassID"]}/${r["SubClassID"]}`, r["DisplayName_lang"] ?? ""]),
+  );
+  const chrClasses = new Map(parseCsv(chrClassesText).map((r) => [num(r, "ID"), r["Name_lang"] ?? ""]));
+  const chrRaces = new Map(parseCsv(chrRacesText).map((r) => [num(r, "ID"), r["Name_lang"] ?? ""]));
+
+  const armorCtx: ArmorContext = {
+    // `ItemArmorQuality` has no ItemLevel column — its `ID` *is* the item level.
+    armorTotal: indexBy(parseCsv(armorTotalText), "ItemLevel"),
+    armorQuality: indexBy(parseCsv(armorQualityText), "ID"),
+    armorShield: indexBy(parseCsv(armorShieldText), "ItemLevel"),
+    // `ArmorLocation.ID` is the `InventoryType` value.
+    armorLocation: indexBy(parseCsv(armorLocationText), "ID"),
+    enums,
+  };
+  const weaponCtx: WeaponContext = {
+    damageCurves: new Map(
+      DAMAGE_CURVE_TABLES.map((name, i) => [name, indexBy(parseCsv(damageCurveTexts[i]!), "ItemLevel")]),
+    ),
+    enums,
+  };
+
   const setRows = parseCsv(itemSetText);
   const setSpellsBySet = indexByMulti(parseCsv(itemSetSpellText), "ItemSetID");
   const randPropPoints = indexBy(parseCsv(rppText), "ID");
@@ -414,6 +841,9 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
 
   const catalogItems: ForeverItem[] = [];
   let withStats = 0;
+  let withIcon = 0;
+  let withArmor = 0;
+  let withWeapon = 0;
 
   for (const row of sparseRows) {
     const id = num(row, "ID");
@@ -436,9 +866,12 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
       const effect = effects.get(link["ItemEffectID"] ?? "");
       if (!effect) continue;
       const spellId = num(effect, "SpellID");
+      const rawDescription = spellText_.get(String(spellId))?.["Description_lang"] ?? "";
+      const description = rawDescription ? stripSpellTokens(rawDescription) : "";
       itemEffects.push({
         spell_id: spellId,
         spell_name: spellName(spellId),
+        spell_description: description || null,
         trigger_type: num(effect, "TriggerType"),
         charges: num(effect, "Charges"),
         cooldown_ms: num(effect, "CoolDownMSec"),
@@ -454,6 +887,29 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
     const setId = num(row, "ItemSet");
     const set = setId > 0 ? setsById.get(setId) : undefined;
 
+    const classId = itemRow ? num(itemRow, "ClassID") : null;
+    const subclassId = itemRow ? num(itemRow, "SubclassID") : null;
+    const itemClass = classId === null ? null : classNames.get(String(classId)) ?? null;
+    const itemSubclass = classId === null ? null : subclassNames.get(`${classId}/${subclassId}`) ?? null;
+
+    const icon = itemRow ? resolveIconName(num(itemRow, "IconFileDataID"), iconManifest) : null;
+    if (icon) withIcon++;
+
+    const armorResult = computeArmor(itemClass, itemSubclass, itemLevel, qualityId, inventoryTypeId, armorCtx);
+    if (armorResult.armor !== null) withArmor++;
+    const weaponResult = computeWeapon(itemClass, itemSubclass, row, itemLevel, qualityId, inventoryTypeId, weaponCtx);
+    if (weaponResult.weapon !== null) withWeapon++;
+
+    // `AllowableRace` is a 64-bit mask split across two 32-bit columns.
+    const raceMask =
+      (BigInt.asUintN(32, BigInt(num(row, "AllowableRace_1"))) << 32n) |
+      BigInt.asUintN(32, BigInt(num(row, "AllowableRace_0")));
+    const classMask = BigInt.asUintN(32, BigInt(num(row, "AllowableClass")));
+    const unrestrictedRace = num(row, "AllowableRace_0") === -1 || num(row, "AllowableRace_0") === 0;
+
+    const bondingId = num(row, "Bonding");
+    const flavor = row["Description_lang"] ?? "";
+
     catalogItems.push({
       id,
       name: row["Display_lang"] ?? "",
@@ -463,9 +919,20 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
       quality: enums.quality.values[String(qualityId)] ?? null,
       inventory_type_id: inventoryTypeId,
       inventory_type: enums.inventoryType.values[String(inventoryTypeId)] ?? null,
-      class_id: itemRow ? num(itemRow, "ClassID") : null,
-      subclass_id: itemRow ? num(itemRow, "SubclassID") : null,
-      bonding: num(row, "Bonding"),
+      class_id: classId,
+      subclass_id: subclassId,
+      item_class: itemClass,
+      item_subclass: itemSubclass,
+      icon,
+      bonding: bondingId,
+      binding: enums.bonding.values[String(bondingId)] ?? null,
+      flavor: flavor || null,
+      allowable_classes: num(row, "AllowableClass") === -1 ? null : decodeAllowMask(classMask, chrClasses),
+      allowable_races: unrestrictedRace ? null : decodeAllowMask(raceMask, chrRaces),
+      armor: armorResult.armor,
+      ...("unknown" in armorResult && armorResult.unknown ? { armor_unknown: armorResult.unknown } : {}),
+      weapon: weaponResult.weapon,
+      ...("unknown" in weaponResult && weaponResult.unknown ? { weapon_unknown: weaponResult.unknown } : {}),
       sell_price: num(row, "SellPrice"),
       buy_price: num(row, "BuyPrice"),
       sockets,
@@ -492,6 +959,9 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
       zone_count: zones.length,
       map_count: maps.length,
       items_with_computed_stats: withStats,
+      items_with_icon: withIcon,
+      items_with_armor: withArmor,
+      items_with_weapon_damage: withWeapon,
       stat_type_enum_build: enums.statType.build,
     },
     items: catalogItems,
@@ -502,6 +972,7 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
 
   await mkdir(CATALOG_DIR, { recursive: true });
   await Bun.write(CATALOG_FILE, JSON.stringify(catalog));
+  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog)));
   return catalog;
 }
 
@@ -511,6 +982,132 @@ export async function loadCatalog(): Promise<ForeverCatalog> {
     throw new Error(`No Forever catalog at ${CATALOG_FILE} — run: ./run src/forever.ts --ingest`);
   }
   return (await file.json()) as ForeverCatalog;
+}
+
+// --- Projected view -------------------------------------------------------
+
+/**
+ * One row of `forever/catalog/items-view.json` — the slim projection display
+ * surfaces read instead of the full catalog.
+ *
+ * Everything a human never sees is dropped: stat budgets and allocations,
+ * numeric stat/quality/inventory-type ids, prices, and empty socket lists. What
+ * stays is exactly what the item table and its tooltip render. Fields are
+ * *omitted* rather than emitted as `null` — at 19k items the repeated key names
+ * alone cost ~4MB — so every field below is optional to the reader. Unknown
+ * *reasons* survive the projection: an omitted armor value has to keep saying
+ * why it is missing.
+ */
+export interface ForeverItemView {
+  id: number;
+  name: string;
+  /** Icon file name, no path or extension. The consumer composes the URL. */
+  icon?: string;
+  item_level: number;
+  required_level: number;
+  quality?: string;
+  inventory_type?: string;
+  item_class?: string;
+  item_subclass?: string;
+  binding?: string;
+  flavor?: string;
+  allowable_classes?: string[];
+  allowable_races?: string[];
+  armor?: number;
+  armor_unknown?: string;
+  weapon?: ForeverWeapon;
+  weapon_unknown?: string;
+  stats?: { stat: string | null; value: number | null; unknown?: string }[];
+  effects?: {
+    spell_name: string | null;
+    spell_description: string | null;
+    trigger_type: number;
+    cooldown_ms: number;
+  }[];
+  item_set?: { id: number; name: string };
+  sockets?: (string | null)[];
+}
+
+export interface ForeverItemsView {
+  meta: {
+    build: string;
+    ingested_at: string;
+    item_count: number;
+    /** Restated on the view so a consumer never has to infer it from an empty list. */
+    drop_sources_unknown: string;
+  };
+  items: ForeverItemView[];
+}
+
+/**
+ * Drop sources are deliberately absent from the view.
+ *
+ * They are per-loot-row, server-side and unknown for ~97% of the catalog, so
+ * the view carries this sentence instead of a field that would read as "drops
+ * from nothing".
+ */
+export const DROP_SOURCES_UNKNOWN =
+  "drop sources are server-side and absent from the client; this view never asserts one — use `--item-sources <id>` for the vendored reused-Vanilla extract";
+
+/** Spread helper: emit `{ key: value }` only when `value` is set and non-empty. */
+function present<K extends string, V>(key: K, value: V | null | undefined): Partial<Record<K, V>> {
+  if (value === null || value === undefined) return {};
+  if (Array.isArray(value) && value.length === 0) return {};
+  return { [key]: value } as Partial<Record<K, V>>;
+}
+
+export function projectItemsView(catalog: ForeverCatalog): ForeverItemsView {
+  return {
+    meta: {
+      build: catalog.meta.build,
+      ingested_at: catalog.meta.ingested_at,
+      item_count: catalog.items.length,
+      drop_sources_unknown: DROP_SOURCES_UNKNOWN,
+    },
+    items: catalog.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      item_level: item.item_level,
+      required_level: item.required_level,
+      ...present("icon", item.icon),
+      ...present("quality", item.quality),
+      ...present("inventory_type", item.inventory_type),
+      ...present("item_class", item.item_class),
+      ...present("item_subclass", item.item_subclass),
+      // A "Not Bound" item shows no binding line at all, so it carries no value here.
+      ...present("binding", item.bonding > 0 ? item.binding : null),
+      ...present("flavor", item.flavor),
+      ...present("allowable_classes", item.allowable_classes),
+      ...present("allowable_races", item.allowable_races),
+      ...present("armor", item.armor),
+      ...present("armor_unknown", item.armor_unknown),
+      ...present("weapon", item.weapon),
+      ...present("weapon_unknown", item.weapon_unknown),
+      ...present(
+        "stats",
+        item.stats.map((s) => ({ stat: s.stat, value: s.value, ...present("unknown", s.unknown) })),
+      ),
+      ...present(
+        "effects",
+        item.effects.map((e) => ({
+          spell_name: e.spell_name,
+          spell_description: e.spell_description,
+          trigger_type: e.trigger_type,
+          cooldown_ms: e.cooldown_ms,
+        })),
+      ),
+      ...present("item_set", item.item_set),
+      ...present("sockets", item.sockets),
+    })),
+  };
+}
+
+export async function loadItemsView(): Promise<ForeverItemsView> {
+  const file = Bun.file(ITEMS_VIEW_FILE);
+  if (!(await file.exists())) {
+    throw new Error(`No Forever item view at ${ITEMS_VIEW_FILE} — run: bun run src/forever.ts --ingest`);
+  }
+  return (await file.json()) as ForeverItemsView;
 }
 
 // --- Vendored loot --------------------------------------------------------
