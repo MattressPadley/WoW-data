@@ -5,7 +5,8 @@
  * Usage:
  *   ./run src/season.ts --bootstrap --slug midnight-s1 --raid-id 1314 [--item-id 249343] [--pretty]
  *   ./run src/season.ts --bootstrap --slug midnight-s1 --raid-id 1314 --name "Midnight Season 1" --expansion Midnight --patch 12.0 --crest-suffix Dawncrest
- *   ./run src/season.ts --info [--pretty]
+ *   ./run src/season.ts --info [--season <slug>] [--pretty]
+ *   ./run src/season.ts [--season <slug>]             # no action flag → --info (used by the tome season tool)
  *   ./run src/season.ts --set-current midnight-s1
  */
 
@@ -60,17 +61,14 @@ try {
     });
 
     output(season, pretty);
-  } else if (hasFlag("--info")) {
+  } else if (hasFlag("--info") || !getArg("--set-current")) {
     const slug = getArg("--season");
     const season = await loadSeason(slug);
     output(season, pretty);
-  } else if (getArg("--set-current")) {
+  } else {
     const slug = getArg("--set-current")!;
     await setCurrentSeason(slug);
     output({ current: slug }, pretty);
-  } else {
-    console.error(JSON.stringify({ error: "Provide --bootstrap, --info, or --set-current" }));
-    process.exit(1);
   }
 } catch (err: any) {
   console.error(JSON.stringify({ error: err.message ?? String(err) }));

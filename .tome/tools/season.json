@@ -1,0 +1,18 @@
+{
+  "name": "season",
+  "path": "/Users/mhadley/Dev/wow-data",
+  "runner": "bun run",
+  "description": "Active season model (follows seasons/current.yaml)",
+  "refreshInterval": 0,
+  "commands": [
+    {
+      "name": "info",
+      "file": "src/season.ts",
+      "description": "Season data for the active season, or a pinned slug",
+      "flags": [],
+      "params": [
+        { "name": "season", "type": "string", "label": "Season", "description": "Season slug (defaults to seasons/current.yaml)", "optional": true }
+      ]
+    }
+  ]
+}

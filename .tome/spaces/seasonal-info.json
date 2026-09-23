@@ -62,8 +62,9 @@
     "dataNodes": [
       {
         "id": "data-tracks",
-        "expression": "'seasons/midnight-s1/season.yaml'.tracks",
-        "filePath": "seasons/midnight-s1/season.yaml",
+        "expression": "@season.info.tracks",
+        "sourceType": "tool",
+        "filePath": "",
         "drillPath": "tracks",
         "outputType": "record",
         "position": {
@@ -81,12 +82,16 @@
               "prop": "tracks"
             }
           ]
-        }
+        },
+        "toolName": "season",
+        "toolCommand": "info",
+        "toolArgs": ""
       },
       {
         "id": "data-crests",
-        "expression": "'seasons/midnight-s1/season.yaml'.crest_sources",
-        "filePath": "seasons/midnight-s1/season.yaml",
+        "expression": "@season.info.crest_sources",
+        "sourceType": "tool",
+        "filePath": "",
         "drillPath": "crest_sources",
         "outputType": "record",
         "position": {
@@ -98,12 +103,16 @@
             "target": "crest-sources",
             "prop": "crestSources"
           }
-        }
+        },
+        "toolName": "season",
+        "toolCommand": "info",
+        "toolArgs": ""
       },
       {
         "id": "data-crafted",
-        "expression": "'seasons/midnight-s1/season.yaml'.crafted",
-        "filePath": "seasons/midnight-s1/season.yaml",
+        "expression": "@season.info.crafted",
+        "sourceType": "tool",
+        "filePath": "",
         "drillPath": "crafted",
         "outputType": "record",
         "position": {
@@ -115,7 +124,10 @@
             "target": "ilvl-chart",
             "prop": "crafted"
           }
-        }
+        },
+        "toolName": "season",
+        "toolCommand": "info",
+        "toolArgs": ""
       },
       {
         "id": "data-gear-items",
