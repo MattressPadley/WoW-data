@@ -1,0 +1,42 @@
+{
+  "name": "Forever Items",
+  "scene": {
+    "root": {
+      "id": "forever-items-table",
+      "type": "forever-item-table",
+      "props": {
+        "title": "Forever Item Browser"
+      }
+    },
+    "dataNodes": [
+      {
+        "id": "data-forever-items",
+        "expression": "'forever/catalog/items-view.json'.items",
+        "filePath": "forever/catalog/items-view.json",
+        "drillPath": "items",
+        "outputType": "table",
+        "position": { "x": 180, "y": 180 },
+        "links": {
+          "value": {
+            "target": "forever-items-table",
+            "prop": "items"
+          }
+        }
+      },
+      {
+        "id": "data-forever-items-meta",
+        "expression": "'forever/catalog/items-view.json'.meta",
+        "filePath": "forever/catalog/items-view.json",
+        "drillPath": "meta",
+        "outputType": "record",
+        "position": { "x": 180, "y": 360 },
+        "links": {
+          "value": {
+            "target": "forever-items-table",
+            "prop": "meta"
+          }
+        }
+      }
+    ]
+  }
+}

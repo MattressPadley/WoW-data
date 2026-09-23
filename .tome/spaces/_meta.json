@@ -1,7 +1,8 @@
 {
   "order": [
     "Default",
-    "Seasonal Info"
+    "Seasonal Info",
+    "Forever Items"
   ],
-  "activeIndex": 1
+  "activeIndex": 2
 }

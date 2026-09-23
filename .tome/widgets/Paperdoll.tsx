@@ -1,46 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip, usePopover, ListItem } from "@tome/ui";
-
-interface GearStat {
-  name: string;
-  value: number;
-  is_equip_bonus?: boolean;
-}
-
-interface GearSocket {
-  type?: string;
-  gem?: string | null;
-  display?: string | null;
-  empty?: boolean;
-}
-
-interface GearSpell {
-  name?: string | null;
-  description?: string | null;
-}
-
-interface GearItem {
-  slot: string;
-  name: string;
-  ilvl: number;
-  quality?: string;
-  track?: string;
-  rank?: number;
-  max_rank?: number;
-  crafted?: boolean;
-  source?: string;
-  icon?: string;
-  binding?: string;
-  armor?: number;
-  armor_type?: string;
-  stats?: GearStat[];
-  sockets?: GearSocket[];
-  spells?: GearSpell[];
-  enchantments?: { name?: string | null; id?: number | null }[];
-  unique?: string;
-  limit_category?: string;
-  flavor_text?: string;
-}
+import { qualityColor } from "./lib/quality";
+import { GearItemTooltip, type GearItem } from "./lib/ItemTooltip";
 
 interface CharacterInfo {
   name?: string;
@@ -88,15 +49,6 @@ interface Props {
   saveState?: (patch: Record<string, unknown>) => void;
 }
 
-const QUALITY_COLOR: Record<string, string> = {
-  Poor: "#9d9d9d",
-  Common: "#ffffff",
-  Uncommon: "#1eff00",
-  Rare: "#0070dd",
-  Epic: "#a335ee",
-  Legendary: "#ff8000",
-};
-
 const CLASS_COLOR: Record<string, string> = {
   "Death Knight": "#C41E3A",
   "Demon Hunter": "#A330C9",
@@ -123,81 +75,13 @@ const SLOT_ABBR: Record<string, string> = {
   "Main Hand": "MH", "Off Hand": "OH", "Trinket 1": "T1", "Trinket 2": "T2",
 };
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/* ── Tooltip ── */
-
-function ItemTooltip({ item }: { item: GearItem }) {
-  const qualityColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
-  return (
-    <div style={{ minWidth: 220, maxWidth: 300 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: qualityColor, lineHeight: 1.2 }}>{item.name}</div>
-      <div style={{ fontSize: 12, color: "#ffd100", marginTop: 4 }}>Item Level {item.ilvl}</div>
-      {item.source && <div style={{ fontSize: 11, color: "#1eff00", marginTop: 2 }}>{item.source}</div>}
-      {item.track && (
-        <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>
-          {capitalize(item.track)} {item.rank}/{item.max_rank}
-        </div>
-      )}
-      {item.binding && <div style={{ fontSize: 11, color: "#fff", marginTop: 4 }}>{item.binding}</div>}
-      {item.unique && <div style={{ fontSize: 11, color: "#fff" }}>{item.unique}</div>}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontSize: 11, color: "#fff" }}>{item.slot}</span>
-        {item.armor_type && <span style={{ fontSize: 11, color: "#fff" }}>{item.armor_type}</span>}
-      </div>
-      {item.armor != null && item.armor > 0 && (
-        <div style={{ fontSize: 11, color: "#fff", marginTop: 2 }}>{item.armor} Armor</div>
-      )}
-      {item.stats && item.stats.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          {item.stats.map((s, i) => (
-            <div key={i} style={{ fontSize: 11, color: s.is_equip_bonus ? "#1eff00" : "#fff" }}>
-              +{s.value} {s.name}
-            </div>
-          ))}
-        </div>
-      )}
-      {item.sockets && item.sockets.length > 0 && (
-        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
-          {item.sockets.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" style={{ flexShrink: 0 }}>
-                <rect x="2" y="2" width="8" height="8" rx="1" transform="rotate(45 6 6)"
-                  fill={s.empty ? "none" : "#1eff00"} stroke={s.empty ? "#666" : "#1eff00"} strokeWidth="1.2" />
-              </svg>
-              <span style={{ fontSize: 11, color: s.empty ? "#ff4444" : "#1eff00" }}>
-                {s.empty ? "Empty Socket" : `${s.gem ?? "Gem"}${s.display ? ` — ${s.display}` : ""}`}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {item.spells && item.spells.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          {item.spells.map((sp, i) => (
-            <div key={i} style={{ fontSize: 11, color: "#1eff00", lineHeight: 1.3 }}>{sp.description}</div>
-          ))}
-        </div>
-      )}
-      {item.limit_category && <div style={{ fontSize: 11, color: "#fff", marginTop: 4 }}>{item.limit_category}</div>}
-      {item.flavor_text && (
-        <div style={{ fontSize: 11, color: "#ffd100", fontStyle: "italic", marginTop: 4, lineHeight: 1.3 }}>
-          &ldquo;{item.flavor_text}&rdquo;
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Slot cell ── */
 
 function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "right" | "top"; size?: number }) {
   const tooltipSide = side === "left" ? "left" : side === "right" ? "right" : "top";
   const { triggerRef, triggerProps, Tooltip } = useTooltip({ side: tooltipSide, gap: 8 });
   const slotName = item?.slot ?? "";
-  const borderColor = item ? (QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff") : "#333";
+  const borderColor = item ? qualityColor(item.quality) : "#333";
 
   return (
     <div ref={triggerRef} {...triggerProps} style={{ cursor: item ? "pointer" : "default" }}>
@@ -213,7 +97,7 @@ function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "
           {SLOT_ABBR[slotName] ?? "?"}
         </div>
       )}
-      {item && <Tooltip><ItemTooltip item={item} /></Tooltip>}
+      {item && <Tooltip><GearItemTooltip item={item} /></Tooltip>}
     </div>
   );
 }
@@ -221,7 +105,7 @@ function SlotCell({ item, side, size = 40 }: { item?: GearItem; side: "left" | "
 /* ── Slot row (icon + label + ilvl) ── */
 
 function SlotRow({ item, side, iconSize }: { item?: GearItem; side: "left" | "right"; iconSize: number }) {
-  const ilvlColor = item ? (QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff") : colors.textDisabled;
+  const ilvlColor = item ? qualityColor(item.quality) : colors.textDisabled;
   const label = item?.slot ?? "";
 
   if (side === "left") {
@@ -519,7 +403,7 @@ export default function Paperdoll({ character, gear, title, characters, selected
                     <SlotCell item={item} side="top" size={iconSize} />
                     <Text size="xs" color={colors.textDisabled}>{slot}</Text>
                     {item && (
-                      <Text size="sm" weight={600} color={QUALITY_COLOR[item.quality ?? "Common"] ?? "#fff"}>
+                      <Text size="sm" weight={600} color={qualityColor(item.quality)}>
                         {item.ilvl}
                       </Text>
                     )}

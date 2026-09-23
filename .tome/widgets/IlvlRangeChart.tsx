@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import { colors, Stack, SectionHeader, EmptyState, Text, useTooltip } from "@tome/ui";
+import { qualityColor } from "./lib/quality";
+import { GearItemTooltip, type GearItem } from "./lib/ItemTooltip";
 
 interface TrackInfo {
   min_ilvl: number;
@@ -7,46 +9,6 @@ interface TrackInfo {
   ranks: number;
   crest?: string;
   sources?: string[];
-}
-
-interface GearStat {
-  name: string;
-  value: number;
-  is_equip_bonus?: boolean;
-}
-
-interface GearSocket {
-  type?: string;
-  gem?: string | null;
-  display?: string | null;
-  empty?: boolean;
-}
-
-interface GearSpell {
-  name?: string | null;
-  description?: string | null;
-}
-
-interface GearItem {
-  slot: string;
-  name: string;
-  ilvl: number;
-  quality?: string;
-  track?: string;
-  rank?: number;
-  max_rank?: number;
-  crafted?: boolean;
-  source?: string;
-  icon?: string;
-  binding?: string;
-  armor?: number;
-  armor_type?: string;
-  stats?: GearStat[];
-  sockets?: GearSocket[];
-  spells?: GearSpell[];
-  unique?: string;
-  limit_category?: string;
-  flavor_text?: string;
 }
 
 interface CraftedRange {
@@ -73,15 +35,6 @@ const TRACK_COLOR: Record<string, string> = {
   crafted: colors.chart6,
 };
 
-const QUALITY_COLOR: Record<string, string> = {
-  Poor: "#9d9d9d",
-  Common: "#ffffff",
-  Uncommon: "#1eff00",
-  Rare: "#0070dd",
-  Epic: "#a335ee",
-  Legendary: "#ff8000",
-};
-
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -91,72 +44,9 @@ function axisTicks(min: number, max: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => Math.round(min + step * i));
 }
 
-function ItemTooltip({ item }: { item: GearItem }) {
-  const qualityColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
-
-  return (
-    <div style={{ minWidth: 220, maxWidth: 300 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: qualityColor, lineHeight: 1.2 }}>{item.name}</div>
-      <div style={{ fontSize: 12, color: "#ffd100", marginTop: 4 }}>Item Level {item.ilvl}</div>
-      {item.source && <div style={{ fontSize: 11, color: "#1eff00", marginTop: 2 }}>{item.source}</div>}
-      {item.track && (
-        <div style={{ fontSize: 11, color: "#aaaaaa", marginTop: 2 }}>
-          {capitalize(item.track)} {item.rank}/{item.max_rank}
-        </div>
-      )}
-      {item.binding && <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>{item.binding}</div>}
-      {item.unique && <div style={{ fontSize: 11, color: "#ffffff" }}>{item.unique}</div>}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontSize: 11, color: "#ffffff" }}>{item.slot}</span>
-        {item.armor_type && <span style={{ fontSize: 11, color: "#ffffff" }}>{item.armor_type}</span>}
-      </div>
-      {item.armor != null && item.armor > 0 && (
-        <div style={{ fontSize: 11, color: "#ffffff", marginTop: 2 }}>{item.armor} Armor</div>
-      )}
-      {item.stats && item.stats.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          {item.stats.map((s, i) => (
-            <div key={i} style={{ fontSize: 11, color: s.is_equip_bonus ? "#1eff00" : "#ffffff" }}>
-              +{s.value} {s.name}
-            </div>
-          ))}
-        </div>
-      )}
-      {item.sockets && item.sockets.length > 0 && (
-        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
-          {item.sockets.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" style={{ flexShrink: 0 }}>
-                <rect x="2" y="2" width="8" height="8" rx="1" transform="rotate(45 6 6)"
-                  fill={s.empty ? "none" : "#1eff00"} stroke={s.empty ? "#666666" : "#1eff00"} strokeWidth="1.2" />
-              </svg>
-              <span style={{ fontSize: 11, color: s.empty ? "#ff4444" : "#1eff00" }}>
-                {s.empty ? "Empty Socket" : `${s.gem ?? "Gem"}${s.display ? ` — ${s.display}` : ""}`}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {item.spells && item.spells.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          {item.spells.map((sp, i) => (
-            <div key={i} style={{ fontSize: 11, color: "#1eff00", lineHeight: 1.3 }}>{sp.description}</div>
-          ))}
-        </div>
-      )}
-      {item.limit_category && <div style={{ fontSize: 11, color: "#ffffff", marginTop: 4 }}>{item.limit_category}</div>}
-      {item.flavor_text && (
-        <div style={{ fontSize: 11, color: "#ffd100", fontStyle: "italic", marginTop: 4, lineHeight: 1.3 }}>
-          &ldquo;{item.flavor_text}&rdquo;
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ItemIcon({ item, size = 24 }: { item: GearItem; size?: number }) {
   const { triggerRef, triggerProps, Tooltip } = useTooltip({ side: "top", gap: 6 });
-  const borderColor = QUALITY_COLOR[item.quality ?? "Common"] ?? "#ffffff";
+  const borderColor = qualityColor(item.quality);
 
   return (
     <div ref={triggerRef} {...triggerProps} style={{ cursor: "pointer" }}>
@@ -170,7 +60,7 @@ function ItemIcon({ item, size = 24 }: { item: GearItem; size?: number }) {
           fontSize: 9, color: colors.textDisabled,
         }}>?</div>
       )}
-      <Tooltip><ItemTooltip item={item} /></Tooltip>
+      <Tooltip><GearItemTooltip item={item} /></Tooltip>
     </div>
   );
 }
