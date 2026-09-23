@@ -43,7 +43,20 @@ function cachePath(name: string, opts?: WagoOptions): string {
   return `${CACHE_DIR}/${product}/${build}/${name}.csv`;
 }
 
-async function cachedFetch(url: string, path: string, noCache: boolean, immutable: boolean, label: string): Promise<string> {
+/**
+ * Fetch `url` through a file cache at `path`.
+ *
+ * `immutable` entries never expire; everything else honours the 24h TTL.
+ * `headers` is for non-wago sources that need them (e.g. a browser UA).
+ */
+export async function cachedFetch(
+  url: string,
+  path: string,
+  noCache: boolean,
+  immutable: boolean,
+  label: string,
+  headers?: Record<string, string>,
+): Promise<string> {
   if (!noCache) {
     try {
       const s = await stat(path);
@@ -52,7 +65,7 @@ async function cachedFetch(url: string, path: string, noCache: boolean, immutabl
       }
     } catch {}
   }
-  const res = await fetch(url);
+  const res = await fetch(url, headers ? { headers } : undefined);
   if (!res.ok) throw new Error(`Failed to fetch ${label}: ${res.status}`);
   const text = await res.text();
   await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });

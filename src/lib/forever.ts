@@ -3,8 +3,9 @@
  *
  * Forever is Vanilla content on the retail engine. Its data source map differs
  * from retail: the Blizzard API is dark for the beta, so everything here comes
- * from wago.tools DB2 exports for the Forever build plus a vendored offline
- * extract of reused-Vanilla loot tables.
+ * from wago.tools DB2 exports for the Forever build, a vendored offline extract
+ * of reused-Vanilla loot tables, and a locally derived (gitignored) extract of
+ * wowtbc.gg's datamined dungeon tables (`./forever-wowtbc.ts`).
  *
  * Hard rule: nothing in this file (or anything it imports) may construct
  * `WoWAPI` or touch `src/lib/dungeon-loot.ts` / `src/lib/journal.ts`. The
@@ -12,7 +13,7 @@
  * Encounter Journal call here would fail. Forever loot comes from `forever/loot/`.
  *
  * Never fabricate a drop source or a stat value: anything we cannot derive is
- * reported as explicitly unknown.
+ * reported as explicitly unknown, and every drop source carries its provenance.
  */
 
 import { mkdir } from "node:fs/promises";
@@ -27,6 +28,17 @@ import {
   type WagoBuild,
   type WagoOptions,
 } from "./wago.ts";
+import {
+  WOWTBC_SOURCE,
+  ingestWowtbc,
+  loadWowtbc,
+  sameName,
+  CROSSCHECK_STAT_MAP,
+  type ForeverGapItem,
+  type WowtbcExtract,
+  type WowtbcProvenance,
+  type WowtbcUpstreamStats,
+} from "./forever-wowtbc.ts";
 
 /** wago's literal product key. The only place "classic" appears — it is Blizzard's API parameter. */
 export const FOREVER_PRODUCT = "wow_classic_beta";
@@ -972,8 +984,34 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
 
   await mkdir(CATALOG_DIR, { recursive: true });
   await Bun.write(CATALOG_FILE, JSON.stringify(catalog));
-  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog)));
+  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, await loadWowtbc())));
   return catalog;
+}
+
+/**
+ * Ingest the wowtbc.gg dungeon tables against the ingested catalog, then
+ * rewrite the items view so it carries the gap items and provenance-stamped
+ * drop sources.
+ */
+export async function ingestWowtbcTables(build: string, noCache: boolean): Promise<WowtbcExtract> {
+  const [catalog, enums] = await Promise.all([loadCatalog(), loadEnums()]);
+  if (catalog.meta.build !== build) {
+    throw new Error(`Catalog is build ${catalog.meta.build}, not ${build} — run --ingest --build ${build} first`);
+  }
+  const extract = await ingestWowtbc(
+    {
+      build,
+      sparseIds: new Set(catalog.items.map((i) => i.id)),
+      qualities: enums.quality.values,
+      bondings: enums.bonding.values,
+      inventoryTypes: enums.inventoryType.values,
+      itemSets: catalog.item_sets,
+    },
+    noCache,
+    FOREVER_PRODUCT,
+  );
+  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, extract)));
+  return extract;
 }
 
 export async function loadCatalog(): Promise<ForeverCatalog> {
@@ -1026,6 +1064,26 @@ export interface ForeverItemView {
   }[];
   item_set?: { id: number; name: string };
   sockets?: (string | null)[];
+  /**
+   * Where the row's non-drop data came from. Absent = the build (`ItemSparse`).
+   * `wowtbc-warcraftforever` = a gap item: the build has no `ItemSparse` row, so
+   * name/ilvl/quality are datamined — see {@link ForeverGapItem.field_sources}.
+   */
+  data_source?: typeof WOWTBC_SOURCE;
+  /** Gap items only: upstream's stat blocks, raw. Never build-computed — {@link stats} stays absent. */
+  upstream_stats?: WowtbcUpstreamStats;
+  /** Gap items only: upstream's `discovered` flag (true / false / null). */
+  discovered?: boolean | null;
+  /** Drop/quest sources, each carrying its provenance. Absent = no source known. */
+  drop_sources?: ForeverViewDropSource[];
+}
+
+export interface ForeverViewDropSource {
+  dungeon: string;
+  kind: "boss" | "trash" | "quest";
+  /** Boss or quest name; absent for trash. */
+  name?: string;
+  source: typeof WOWTBC_SOURCE;
 }
 
 export interface ForeverItemsView {
@@ -1033,21 +1091,26 @@ export interface ForeverItemsView {
     build: string;
     ingested_at: string;
     item_count: number;
-    /** Restated on the view so a consumer never has to infer it from an empty list. */
+    /** How many rows are wowtbc gap items rather than build rows. */
+    gap_item_count: number;
+    /** When the wowtbc extract was fetched; null when none is ingested. */
+    wowtbc_fetched_at: string | null;
+    /** Restated on the view so a consumer never reads an absent `drop_sources` as "drops from nothing". */
     drop_sources_unknown: string;
   };
   items: ForeverItemView[];
 }
 
 /**
- * Drop sources are deliberately absent from the view.
+ * Drop sources are shown only with provenance.
  *
- * They are per-loot-row, server-side and unknown for ~97% of the catalog, so
- * the view carries this sentence instead of a field that would read as "drops
- * from nothing".
+ * They are server-side and absent from the client. The view carries one only
+ * when a stamped source supplies it (today: the wowtbc datamined tables), and
+ * an item with none carries no field at all plus this sentence — never an
+ * empty list that reads as "drops from nothing".
  */
 export const DROP_SOURCES_UNKNOWN =
-  "drop sources are server-side and absent from the client; this view never asserts one — use `--item-sources <id>` for the vendored reused-Vanilla extract";
+  "drop sources are server-side and absent from the client; one is shown only with its provenance (the datamined wowtbc.gg tables), and an item without one has no known source — see `--item-sources <id>`";
 
 /** Spread helper: emit `{ key: value }` only when `value` is set and non-empty. */
 function present<K extends string, V>(key: K, value: V | null | undefined): Partial<Record<K, V>> {
@@ -1056,15 +1119,38 @@ function present<K extends string, V>(key: K, value: V | null | undefined): Part
   return { [key]: value } as Partial<Record<K, V>>;
 }
 
-export function projectItemsView(catalog: ForeverCatalog): ForeverItemsView {
+function viewDropSources(wowtbc: WowtbcExtract | null, id: number): ForeverViewDropSource[] | null {
+  const sources = wowtbc?.items[String(id)]?.sources;
+  if (!sources || sources.length === 0) return null;
+  return sources.map((s) => ({ dungeon: s.dungeon, kind: s.kind, ...present("name", s.name), source: WOWTBC_SOURCE }));
+}
+
+function projectGapItem(gap: ForeverGapItem, wowtbc: WowtbcExtract): ForeverItemView {
   return {
-    meta: {
-      build: catalog.meta.build,
-      ingested_at: catalog.meta.ingested_at,
-      item_count: catalog.items.length,
-      drop_sources_unknown: DROP_SOURCES_UNKNOWN,
-    },
-    items: catalog.items.map((item) => ({
+    id: gap.id,
+    name: gap.name,
+    // The view's ilvl/level are required numbers; 0 is how the build writes "none".
+    item_level: gap.item_level ?? 0,
+    required_level: gap.required_level ?? 0,
+    ...present("icon", gap.icon),
+    ...present("quality", gap.quality),
+    ...present("inventory_type", gap.inventory_type),
+    ...present("item_class", gap.item_class),
+    ...present("item_subclass", gap.item_subclass),
+    ...present("binding", gap.binding),
+    ...present("item_set", gap.item_set),
+    data_source: WOWTBC_SOURCE,
+    ...present("upstream_stats", Object.keys(gap.upstream_stats).length > 0 ? gap.upstream_stats : null),
+    discovered: gap.provenance.discovered,
+    ...present("drop_sources", viewDropSources(wowtbc, gap.id)),
+  };
+}
+
+export function projectItemsView(catalog: ForeverCatalog, wowtbc: WowtbcExtract | null = null): ForeverItemsView {
+  // Re-checked here: a newer build may since have shipped an `ItemSparse` row, and then the build wins.
+  const buildIds = new Set(catalog.items.map((i) => i.id));
+  const gapItems = wowtbc ? Object.values(wowtbc.gap_items).filter((g) => !buildIds.has(g.id)) : [];
+  const items: ForeverItemView[] = catalog.items.map((item) => ({
       id: item.id,
       name: item.name,
       item_level: item.item_level,
@@ -1098,7 +1184,20 @@ export function projectItemsView(catalog: ForeverCatalog): ForeverItemsView {
       ),
       ...present("item_set", item.item_set),
       ...present("sockets", item.sockets),
-    })),
+      ...present("drop_sources", viewDropSources(wowtbc, item.id)),
+    }));
+  if (wowtbc) items.push(...gapItems.map((g) => projectGapItem(g, wowtbc)));
+  items.sort((a, b) => a.id - b.id);
+  return {
+    meta: {
+      build: catalog.meta.build,
+      ingested_at: catalog.meta.ingested_at,
+      item_count: items.length,
+      gap_item_count: gapItems.length,
+      wowtbc_fetched_at: wowtbc?.meta.fetched_at ?? null,
+      drop_sources_unknown: DROP_SOURCES_UNKNOWN,
+    },
+    items,
   };
 }
 
@@ -1174,38 +1273,53 @@ export async function loadDungeonLoot(): Promise<LootExtract> {
   return (await file.json()) as LootExtract;
 }
 
+/** `source` label for rows from the vendored AtlasLootClassic extract. */
+export const ATLASLOOT_SOURCE = "atlaslootclassic-extract";
+
 export interface NamedLootEntry extends LootEntry {
-  /** Resolved from the ingested catalog; null when the build has no such item. */
+  /** Resolved from the ingested catalog, else a wowtbc gap item; null when neither has it. */
   name: string | null;
   item_level: number | null;
   quality: string | null;
-  /** Present when the item id is not in the ingested build. Never guessed. */
+  /** Set when the name came from wowtbc's datamined tables rather than the build. */
+  data_source?: typeof WOWTBC_SOURCE;
+  /** Present when the item id resolves nowhere. Never guessed. */
   unknown?: string;
+}
+
+/** One item id → display name/ilvl/quality, build first, wowtbc gap item second. */
+export function resolveItemName(
+  id: number,
+  byId: Map<number, ForeverItem> | null,
+  wowtbc: WowtbcExtract | null,
+): Pick<NamedLootEntry, "name" | "item_level" | "quality" | "data_source" | "unknown"> {
+  const item = byId?.get(id);
+  if (item) return { name: item.name, item_level: item.item_level, quality: item.quality };
+  const gap = wowtbc?.gap_items[String(id)];
+  if (gap) return { name: gap.name, item_level: gap.item_level, quality: gap.quality, data_source: WOWTBC_SOURCE };
+  return {
+    name: null,
+    item_level: null,
+    quality: null,
+    unknown: byId
+      ? `item ${id} has no ItemSparse row in the ingested Forever build${wowtbc ? " and is not in the wowtbc tables" : " (no wowtbc extract ingested)"}`
+      : "no Forever catalog ingested — run: bun run src/forever.ts --ingest",
+  };
 }
 
 /**
  * Attaches catalog names/ilvls to a boss's loot rows.
  *
- * An id the build does not carry is reported as unknown rather than dropped —
- * a stale upstream row is information, not something to hide.
+ * An id the build does not carry falls back to a wowtbc gap item (marked with
+ * `data_source`), and otherwise is reported as unknown rather than dropped.
  */
-export function nameLootEntries(entries: LootEntry[], catalog: ForeverCatalog | null): NamedLootEntry[] {
+export function nameLootEntries(
+  entries: LootEntry[],
+  catalog: ForeverCatalog | null,
+  wowtbc: WowtbcExtract | null = null,
+): NamedLootEntry[] {
   const byId = catalog ? new Map(catalog.items.map((i) => [i.id, i])) : null;
-  return entries.map((entry) => {
-    const item = byId?.get(entry.item_id);
-    if (!item) {
-      return {
-        ...entry,
-        name: null,
-        item_level: null,
-        quality: null,
-        unknown: byId
-          ? `item ${entry.item_id} is not in the ingested Forever build`
-          : "no Forever catalog ingested — run: bun run src/forever.ts --ingest",
-      };
-    }
-    return { ...entry, name: item.name, item_level: item.item_level, quality: item.quality };
-  });
+  return entries.map((entry) => ({ ...entry, ...resolveItemName(entry.item_id, byId, wowtbc) }));
 }
 
 export function findInstance(extract: LootExtract, query: string): LootInstance | undefined {
@@ -1237,9 +1351,10 @@ export interface LootAudit {
 /**
  * Cross-checks the vendored loot extract against the ingested build.
  *
- * This is the honesty check on the extract: a row whose item id is absent from
- * the build is speculative, which in practice is how most upstream
- * `forever-new` rows resolve.
+ * A row whose item id is absent from the catalog is not a bad id: it is an item
+ * the build ships without an `ItemSparse` row (no name/stats client-side). Most
+ * upstream `forever-new` rows land here, and wowtbc's datamined tables
+ * corroborate them — see {@link auditWowtbc}.
  */
 export function auditLoot(extract: LootExtract, catalog: ForeverCatalog): LootAudit {
   const known = new Set(catalog.items.map((i) => i.id));
@@ -1325,4 +1440,160 @@ export function findItemSources(extract: LootExtract, itemId: number): {
     }
   }
   return out;
+}
+
+// --- wowtbc cross-check ---------------------------------------------------
+
+export interface WowtbcBossComparison {
+  dungeon: string;
+  boss: string;
+  /** Present in both mappings. */
+  agree: number;
+  only_wowtbc: number[];
+  only_atlasloot: number[];
+}
+
+export interface WowtbcAudit {
+  wowtbc_fetched_at: string;
+  dungeons_matched: number;
+  /** wowtbc dungeons with no AtlasLoot instance (and vice versa, dungeons only). */
+  dungeons_only_wowtbc: string[];
+  dungeons_only_atlasloot: string[];
+  bosses_matched: number;
+  bosses_only_wowtbc: { dungeon: string; boss: string }[];
+  mappings: { agree: number; only_wowtbc: number; only_atlasloot: number };
+  /** Matched bosses whose item lists differ. */
+  disagreements: WowtbcBossComparison[];
+  /**
+   * AtlasLoot rows the build cannot name (no `ItemSparse` row) that wowtbc
+   * lists — i.e. real items corroborated by a second datamine, not bad ids.
+   */
+  atlasloot_unresolved_rows_in_wowtbc: Record<"vanilla" | "forever-new", { unresolved: number; in_wowtbc: number }>;
+  /**
+   * wowtbc primary stats vs the build's computed stats, for items in both, via
+   * {@link CROSSCHECK_STAT_MAP}. A validation check only — wowtbc is computed from
+   * the same client data, so agreement is consistency, not independent evidence.
+   */
+  stat_crosscheck: {
+    items_compared: number;
+    values_compared: number;
+    values_matching: number;
+    mismatches: { item_id: number; stat: string; wowtbc: number | string; build: number | null }[];
+  };
+}
+
+function atlasItemIds(boss: LootBoss): Set<number> {
+  const ids = new Set<number>();
+  for (const entries of Object.values(boss.difficulties)) for (const e of entries) ids.add(e.item_id);
+  return ids;
+}
+
+/**
+ * Compare wowtbc's boss → item mappings with AtlasLoot's, and wowtbc's stats
+ * with the build's. Nothing is retired either way: this reports disagreement.
+ *
+ * AtlasLoot's trash/key pseudo-bosses and raids are out of wowtbc's scope, so
+ * only named bosses in dungeons both sources list are compared.
+ */
+export function auditWowtbc(wowtbc: WowtbcExtract, extract: LootExtract, catalog: ForeverCatalog): WowtbcAudit {
+  const matched: { w: WowtbcExtract["dungeons"][string]; a: LootInstance }[] = [];
+  const onlyWowtbc: string[] = [];
+  for (const d of Object.values(wowtbc.dungeons)) {
+    const a = extract.instances.find((i) => sameName(i.name, d.name) || sameName(i.key, d.name) || sameName(i.key, d.key));
+    if (a) matched.push({ w: d, a });
+    else onlyWowtbc.push(d.name);
+  }
+  const onlyAtlas = extract.instances
+    .filter((i) => i.content_type === "Dungeons" && !matched.some((m) => m.a.key === i.key))
+    .map((i) => i.name);
+
+  const mappings = { agree: 0, only_wowtbc: 0, only_atlasloot: 0 };
+  const disagreements: WowtbcBossComparison[] = [];
+  const bossesOnlyWowtbc: WowtbcAudit["bosses_only_wowtbc"] = [];
+  let bossesMatched = 0;
+  for (const { w, a } of matched) {
+    for (const [bossName, boss] of Object.entries(w.bosses)) {
+      const atlasBoss = a.bosses.find((b) => sameName(b.name, bossName));
+      if (!atlasBoss) {
+        bossesOnlyWowtbc.push({ dungeon: w.name, boss: bossName });
+        continue;
+      }
+      bossesMatched++;
+      const atlasIds = atlasItemIds(atlasBoss);
+      const wowtbcIds = new Set(boss.item_ids);
+      const agree = [...wowtbcIds].filter((id) => atlasIds.has(id)).length;
+      const onlyW = [...wowtbcIds].filter((id) => !atlasIds.has(id));
+      const onlyA = [...atlasIds].filter((id) => !wowtbcIds.has(id));
+      mappings.agree += agree;
+      mappings.only_wowtbc += onlyW.length;
+      mappings.only_atlasloot += onlyA.length;
+      if (onlyW.length > 0 || onlyA.length > 0) {
+        disagreements.push({ dungeon: w.name, boss: bossName, agree, only_wowtbc: onlyW, only_atlasloot: onlyA });
+      }
+    }
+  }
+
+  const byId = new Map(catalog.items.map((i) => [i.id, i]));
+  const corroborated: WowtbcAudit["atlasloot_unresolved_rows_in_wowtbc"] = {
+    vanilla: { unresolved: 0, in_wowtbc: 0 },
+    "forever-new": { unresolved: 0, in_wowtbc: 0 },
+  };
+  for (const instance of extract.instances) {
+    for (const boss of instance.bosses) {
+      for (const entries of Object.values(boss.difficulties)) {
+        for (const entry of entries) {
+          if (byId.has(entry.item_id)) continue;
+          corroborated[entry.provenance].unresolved++;
+          if (wowtbc.items[String(entry.item_id)]) corroborated[entry.provenance].in_wowtbc++;
+        }
+      }
+    }
+  }
+  const statCheck: WowtbcAudit["stat_crosscheck"] = { items_compared: 0, values_compared: 0, values_matching: 0, mismatches: [] };
+  for (const item of Object.values(wowtbc.items)) {
+    const built = byId.get(item.id);
+    const primary = item.upstream_stats.primary;
+    if (!built || !primary) continue;
+    let compared = false;
+    for (const [name, value] of Object.entries(primary)) {
+      const statName = CROSSCHECK_STAT_MAP[name];
+      if (!statName) continue;
+      compared = true;
+      statCheck.values_compared++;
+      const buildValue = built.stats.find((s) => s.stat === statName)?.value ?? null;
+      if (buildValue === value) statCheck.values_matching++;
+      else statCheck.mismatches.push({ item_id: item.id, stat: statName, wowtbc: value, build: buildValue });
+    }
+    if (compared) statCheck.items_compared++;
+  }
+
+  return {
+    wowtbc_fetched_at: wowtbc.meta.fetched_at,
+    dungeons_matched: matched.length,
+    dungeons_only_wowtbc: onlyWowtbc,
+    dungeons_only_atlasloot: onlyAtlas,
+    bosses_matched: bossesMatched,
+    bosses_only_wowtbc: bossesOnlyWowtbc,
+    mappings,
+    disagreements,
+    atlasloot_unresolved_rows_in_wowtbc: corroborated,
+    stat_crosscheck: statCheck,
+  };
+}
+
+/** Provenance-stamped wowtbc facts about one item, for the CLI. */
+export function wowtbcItemFacts(wowtbc: WowtbcExtract, id: number): {
+  provenance: WowtbcProvenance;
+  content: "vanilla" | "forever-new";
+  upstream_stats: WowtbcUpstreamStats;
+  vanilla_drop_chance: number | null;
+} | null {
+  const item = wowtbc.items[String(id)];
+  if (!item) return null;
+  return {
+    provenance: item.provenance,
+    content: item.content,
+    upstream_stats: item.upstream_stats,
+    vanilla_drop_chance: item.vanilla_drop_chance,
+  };
 }

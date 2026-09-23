@@ -392,12 +392,13 @@ describe("projectItemsView", () => {
     expect(row.armor_unknown).toContain("ItemArmorTotal");
   });
 
-  test("never carries a drop source, and says so", () => {
+  test("carries no drop source without provenance, and says so", () => {
     const view = projectItemsView({
       meta: { build: "1.60.1.1", ingested_at: "now" } as ForeverCatalog["meta"],
       items: [item({})], item_sets: [], zones: [], maps: [],
     });
     expect(view.items[0]).not.toHaveProperty("drop_sources");
-    expect(view.meta.drop_sources_unknown).toContain("never asserts one");
+    expect(view.meta.drop_sources_unknown).toContain("only with its provenance");
+    expect(view.meta.gap_item_count).toBe(0);
   });
 });

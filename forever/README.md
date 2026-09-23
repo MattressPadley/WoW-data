@@ -17,6 +17,7 @@ registering Forever there would risk breaking retail tools.
 | `enums/*.json` | yes | DBD enum snapshots (`ItemStatType`, `ItemQuality`, `InventoryType`) captured from wago's `dbdMeta`, with the build they came from |
 | `loot/dungeon-loot.json` | yes | Offline extract of AtlasLootClassic's reused-Vanilla loot tables |
 | `loot/LICENSE`, `loot/SOURCE.md` | yes | Upstream GPLv2 text and the exact commit the extract came from |
+| `loot/wowtbc-dungeons.json` | **no** (gitignored) | Derived from wowtbc.gg's datamined dungeon tables — upstream has no license, so it is never committed. `--ingest-wowtbc` |
 | `catalog/items.json` | **no** (gitignored) | Ingested item catalog for one build — regenerable in seconds, rotates ~weekly |
 
 ## Where the data comes from
@@ -28,8 +29,12 @@ server-side (absent from the client). So:
   Stat values are genuinely computable: `StatPercentEditor × RandPropPoints ÷ 10000`,
   because Forever runs the modern budget system.
 - **Reused-Vanilla loot** — vendored offline extract (see `loot/SOURCE.md`).
-- **New-content loot** — *not known*. Upstream datamines it; we carry those rows flagged
-  `provenance: forever-new` / `loot_status: unknown-new-content` and never assert them.
+- **Gap items and boss/quest sources** — wowtbc.gg's datamined dungeon tables, ingested
+  locally. wago stays authoritative per field; every row is stamped
+  `source: wowtbc-warcraftforever` with upstream's `discovered` flag and a fetch date.
+- **New-content loot** — *datamined, not observed*. AtlasLoot rows stay flagged
+  `provenance: forever-new`; wowtbc's are stamped as above, never carry a drop rate, and a new
+  dungeon upstream has no data for reads `unknown`.
 
 Nothing here constructs `WoWAPI` or touches `src/lib/dungeon-loot.ts` — see
 `docs/forever-data.md` for why.
@@ -42,5 +47,6 @@ See `docs/forever-data.md`. Quick start:
 bun run src/forever.ts --build-info --pretty
 bun run src/forever.ts --refresh-enums
 bun run src/forever.ts --ingest
+bun run src/forever.ts --ingest-wowtbc
 bun run src/forever.ts --item 12640 --pretty
 ```

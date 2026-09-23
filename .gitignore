@@ -167,3 +167,8 @@ bun.lock
 
 # Forever item catalog — regenerated per build with `bun run src/forever.ts --ingest`
 forever/catalog/
+
+# wowtbc.gg-derived Forever loot — upstream publishes no license, so never commit it.
+# Only this file: the rest of forever/loot/ is the committed GPLv2 AtlasLoot extract.
+# Regenerate with `bun run src/forever.ts --ingest-wowtbc`.
+forever/loot/wowtbc-dungeons.json

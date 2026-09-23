@@ -27,7 +27,7 @@ async function importGraph(entry: string): Promise<string[]> {
 }
 
 describe("Forever path isolation", () => {
-  for (const entry of ["src/lib/forever.ts", "src/forever.ts", "scripts/extract-atlasloot.ts"]) {
+  for (const entry of ["src/lib/forever.ts", "src/lib/forever-wowtbc.ts", "src/forever.ts", "scripts/extract-atlasloot.ts"]) {
     test(`${entry} imports nothing that reaches the Blizzard API`, async () => {
       const graph = await importGraph(entry);
       expect(graph.filter((f) => FORBIDDEN.includes(f))).toEqual([]);
@@ -35,7 +35,7 @@ describe("Forever path isolation", () => {
   }
 
   test("no WoWAPI construction in the Forever sources", async () => {
-    for (const file of ["src/lib/forever.ts", "src/forever.ts", "scripts/extract-atlasloot.ts"]) {
+    for (const file of ["src/lib/forever.ts", "src/lib/forever-wowtbc.ts", "src/forever.ts", "scripts/extract-atlasloot.ts"]) {
       const source = await Bun.file(resolve(ROOT, file)).text();
       expect(source).not.toContain("new WoWAPI");
     }
@@ -44,6 +44,7 @@ describe("Forever path isolation", () => {
   test("the graph walker actually resolves imports", async () => {
     // Guards against the test passing because it found nothing.
     expect(await importGraph("src/lib/forever.ts")).toContain("src/lib/wago.ts");
+    expect(await importGraph("src/lib/forever.ts")).toContain("src/lib/forever-wowtbc.ts");
     expect(await importGraph("src/dungeon-loot.ts")).toContain("src/api.ts");
   });
 });

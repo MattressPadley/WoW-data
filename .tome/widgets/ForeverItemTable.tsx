@@ -62,12 +62,19 @@ interface ForeverItem {
   effects?: ForeverItemEffect[];
   item_set?: { id: number; name: string };
   sockets?: (string | null)[];
+  /** Set on gap items: the build has no stats row, so this row is datamined (wowtbc.gg). */
+  data_source?: string;
+  /** Gap items only: upstream's stat blocks, raw — never build-computed. */
+  upstream_stats?: Record<string, Record<string, number | string>>;
+  /** Drop/quest sources, each stamped with where it came from. Absent = none known. */
+  drop_sources?: { dungeon: string; kind: "boss" | "trash" | "quest"; name?: string; source: string }[];
 }
 
 interface ViewMeta {
   build?: string;
   item_count?: number;
-  /** The catalogue's own sentence about why no drop source is shown. Rendered verbatim. */
+  gap_item_count?: number;
+  /** The catalogue's own sentence about when a drop source is (not) shown. Rendered verbatim. */
   drop_sources_unknown?: string;
 }
 
@@ -135,9 +142,17 @@ function triggerLabel(effect: ForeverItemEffect): string {
   return effect.trigger_type === 0 ? "Use:" : "Equip:";
 }
 
+const SOURCE_LABEL: Record<string, string> = { "wowtbc-warcraftforever": "wowtbc.gg, datamined" };
+
+function sourceLine(s: NonNullable<ForeverItem["drop_sources"]>[number]): string {
+  const where = s.kind === "trash" ? `${s.dungeon} trash` : s.kind === "quest" ? `Quest: ${s.name} (${s.dungeon})` : `${s.name} — ${s.dungeon}`;
+  return `${where} [${SOURCE_LABEL[s.source] ?? s.source}]`;
+}
+
 function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropSourceNote?: string }) {
   const stats = item.stats ?? [];
   const effects = item.effects ?? [];
+  const upstream = Object.values(item.upstream_stats ?? {}).flatMap((block) => Object.entries(block));
   return (
     <ItemTooltipCard name={item.name} quality={item.quality} itemLevel={item.item_level}>
       {item.binding && <TooltipLine top={4}>{item.binding}</TooltipLine>}
@@ -176,6 +191,14 @@ function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropS
         </div>
       )}
 
+      {upstream.length > 0 && (
+        <div style={{ marginTop: 4 }}>
+          {upstream.map(([k, v], i) => (
+            <TooltipLine key={i} color={TOOLTIP_MUTED}>{k}: {String(v)} (upstream)</TooltipLine>
+          ))}
+        </div>
+      )}
+
       {item.required_level > 0 && <TooltipLine top={4}>Requires Level {item.required_level}</TooltipLine>}
       {item.allowable_classes && <TooltipLine>Classes: {item.allowable_classes.join(", ")}</TooltipLine>}
       {item.allowable_races && <TooltipLine>Races: {item.allowable_races.join(", ")}</TooltipLine>}
@@ -197,8 +220,19 @@ function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropS
           &ldquo;{item.flavor}&rdquo;
         </TooltipLine>
       )}
-      {dropSourceNote && (
-        <TooltipLine color={TOOLTIP_MUTED} top={6}>Drop source not shown — {dropSourceNote}</TooltipLine>
+      {item.data_source && (
+        <TooltipLine color={TOOLTIP_MUTED} top={6}>
+          Not in this build&apos;s stats table — name and upstream stats are datamined ({SOURCE_LABEL[item.data_source] ?? item.data_source})
+        </TooltipLine>
+      )}
+      {item.drop_sources ? (
+        <div style={{ marginTop: 6 }}>
+          {item.drop_sources.map((s, i) => (
+            <TooltipLine key={i} color={TOOLTIP_MUTED}>{sourceLine(s)}</TooltipLine>
+          ))}
+        </div>
+      ) : (
+        dropSourceNote && <TooltipLine color={TOOLTIP_MUTED} top={6}>No drop source — {dropSourceNote}</TooltipLine>
       )}
     </ItemTooltipCard>
   );
@@ -519,7 +553,7 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
             </Text>
             {dropSourceNote && (
               <Text size="xs" color={colors.textDisabled} truncate title={dropSourceNote}>
-                No drop sources: {dropSourceNote}
+                Drop sources: {dropSourceNote}
               </Text>
             )}
           </div>

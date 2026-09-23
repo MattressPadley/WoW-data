@@ -24,6 +24,9 @@ Two hard rules follow:
    with "Table not found". Run Forever tools with plain `bun run`, not `./run`.
 2. **Unknown must read as unknown.** Drop sources and stats we cannot derive are emitted as
    explicit `unknown` / `null`, never as an empty list that looks complete and never guessed.
+3. **Drop sources are shown only with provenance.** Every source carries a `source` stamp
+   (`atlaslootclassic-extract` or `wowtbc-warcraftforever`); nothing is presented as an observed
+   drop. See [Datamined dungeon tables (wowtbc.gg)](#datamined-dungeon-tables-wowtbcgg).
 
 ## Commands
 
@@ -34,17 +37,19 @@ Run with plain `bun run` — no credentials needed.
 | `--build-info` | Resolve the current Forever build from `wago.tools/api/builds` |
 | `--refresh-enums [--build X]` | Re-snapshot the DBD enums into `forever/enums/` |
 | `--ingest [--build X] [--no-cache]` | Ingest the item catalog into `forever/catalog/items.json` (+ `items-view.json`) |
-| `--item <id>` | One item with computed stats, effects, set and known drop sources |
-| `--search <text> [--limit N]` | Name search across the ingested catalog |
-| `--list-instances` | Instances in the vendored loot extract, with new-content counts |
-| `--loot <instance>` | One instance's loot, item names resolved from the catalog |
-| `--item-sources <id>` | Where an item drops, per the vendored extract only |
-| `--audit-loot` | Cross-check the vendored loot rows against the ingested build |
+| `--ingest-wowtbc [--build X] [--no-cache]` | Fetch wowtbc.gg's 34 dungeon tables (24h cache) into `forever/loot/wowtbc-dungeons.json` and rewrite `items-view.json` with gap items + drop sources. Run after `--ingest` |
+| `--item <id>` | One item: build row (or wowtbc gap item), computed stats, provenance-stamped drop sources |
+| `--search <text> [--limit N]` | Name search across the catalog plus wowtbc gap items (`data_source` marks the latter) |
+| `--list-instances` | AtlasLoot instances and wowtbc dungeons, merged; new dungeons wowtbc has no data for read `status: unknown` |
+| `--loot <instance>` | One instance: AtlasLoot's boss loot (`instance`) and wowtbc's boss/trash/quest tables (`wowtbc`) |
+| `--item-sources <id>` | Where an item drops or is rewarded, from both sources, each stamped |
+| `--audit-loot` | Cross-check AtlasLoot rows against the build, and wowtbc boss mappings/stats against both |
 
 ```sh
 bun run src/forever.ts --build-info --pretty
 bun run src/forever.ts --refresh-enums          # only needed when the enums change
 bun run src/forever.ts --ingest                 # ~19k items, a couple of seconds
+bun run src/forever.ts --ingest-wowtbc          # +1.3k gap items, boss/quest sources
 bun run src/forever.ts --item 12640 --pretty    # Lionheart Helm
 bun run src/forever.ts --loot "The Deadmines" --pretty
 bun run src/forever.ts --audit-loot --pretty
@@ -225,9 +230,13 @@ rows at once is not an option. It renders ~35 rows around the scroll position re
 far down you are. Name search, quality and slot facets, the sort column and the optional per-stat
 column all persist through `savedState`.
 
-**The view never asserts a drop source.** It carries no `drop_sources` field at all; its `meta`
-carries the sentence explaining why, and the widget renders that sentence verbatim in the footer
-and in every tooltip. Use `--item-sources <id>` for the vendored reused-Vanilla extract.
+**Drop sources are shown only with provenance.** After `--ingest-wowtbc`, a row carries
+`drop_sources` (boss / trash / quest, each with `source: wowtbc-warcraftforever`) when the
+datamined tables have one; a row without a source carries no field at all, and `meta` carries the
+sentence saying what that absence means — the widget renders it verbatim in the footer and in the
+tooltip of every source-less item. Gap items (no `ItemSparse` row) join the view with
+`data_source: wowtbc-warcraftforever`, their `discovered` flag, and raw `upstream_stats` — never
+`stats`, which means build-computed. `meta.gap_item_count` says how many.
 
 ### Icon art comes from a third-party CDN
 
@@ -264,16 +273,114 @@ is what `provenance` records:
 Placeholder ids upstream leaves as `0` are emitted as `null` with a reason, never as `0`.
 Instance names are resolved from the Forever build's own `AreaTable`.
 
+AtlasLoot stays as the cross-check: it is the only source for raids and world bosses, and
+`--audit-loot` compares it with wowtbc boss by boss. Nothing is retired.
+
+## Datamined dungeon tables (wowtbc.gg)
+
+`src/lib/forever-wowtbc.ts` ingests `wowtbc.gg/warcraftforever`'s dungeon loot tables — Gatsby
+`page-data.json` files, one per dungeon under
+`/page-data/warcraftforever/loot-tables/dungeons/<slug>/`, listed by the index
+`.../dungeons/page-data.json` (34 dungeons, 9 `isNew`, **no raids**). Per dungeon it reads
+`pageContext.gearData[]` (items) and `pageContext.loot[].bosses[]` / `.quests[]` (boss → item
+ids, quest → reward ids); `setsData` and `dungeonLinks` are ignored.
+
+```sh
+bun run src/forever.ts --ingest                 # the build catalog first
+bun run src/forever.ts --ingest-wowtbc --pretty # counts; re-runs within 24h hit the cache
+```
+
+**Fetching.** Through wago's `cachedFetch` (`src/lib/wago.ts`) with a browser `User-Agent`, into
+`data/cache/wowtbc-forever/<slug>.page-data.json`, 24h TTL, sequential — 35 requests (index + 34)
+at most once a day. `--no-cache` forces a refetch.
+
+**Not committed.** Upstream publishes no license, so `forever/loot/wowtbc-dungeons.json` is
+gitignored (that one file only — the rest of `forever/loot/` is the GPLv2 AtlasLoot extract).
+Consequence: the gap items and wowtbc sources exist only after a local `--ingest-wowtbc`. Every
+consumer degrades to "no wowtbc extract" (`hint`/`unknown` pointing at the command) without it.
+
+### Output shape
+
+`wowtbc-dungeons.json` is id-indexed and boss-keyed:
+
+| Key | What it holds |
+|---|---|
+| `dungeons[<slug>]` | `name`, `levels`, `is_new`, `status` (`listed` / `unknown`), `bosses` (name → `item_ids`), `trash` (`item_ids` or `null`), `quests[]` (`name`, `level`, `faction`, `item_ids`, `new_item_ids`) |
+| `items[<id>]` | Every upstream item, raw: `rarity`, `bind`, `slot`, `type`, `item_level`, `icon`, `set`, `upstream_stats`, `content`, `vanilla_drop_chance`, `sources[]`, `provenance` |
+| `gap_items[<id>]` | Items the build has **no `ItemSparse` row** for, composed per field (below) |
+
+- **Quests are modelled separately from bosses**, and upstream's `"Trash"` pseudo-boss becomes
+  `trash`, never an encounter.
+- **No fabrication.** A dungeon upstream lists with no items, bosses or quests gets
+  `status: unknown` plus an `unknown` reason. As of 2026-09-23 that is **7 of the 9 new
+  dungeons** — only Hall of Thanes and Ruins of Lordaeron have data; Shaper's Terrace, City of
+  Dalaran, Excavation Site: Wetlands, The Drowned City, Krol'dok Stronghold, Alcaz Prison and
+  Blackmaw Hold are unknown.
+
+### Authority, field by field
+
+- **For an item the build has (`ItemSparse` row), wago is authoritative for every field.** wowtbc
+  contributes only the drop/quest source — and its stats as a cross-check (`--audit-loot`
+  `wowtbc.stat_crosscheck`), never as a value. They matched 16/16 on the overlap; since both are
+  computed from the same client data, that is consistency, not independent evidence.
+- **For a gap item, wago's `Item` table still wins where it has a value** — `class_id`,
+  `subclass_id`, class/subclass names, `inventory_type`, and `icon` (from `IconFileDataID`, when
+  non-zero) — and wago's `ItemSet` table wins for set membership. wowtbc fills only what the build
+  lacks: `name`, `item_level`, `required_level` (`other_stats.min_level`), `quality`, `binding`.
+  `field_sources` on every gap item records the winner per field (`wago-item`, `wago-itemset`,
+  `wowtbc-warcraftforever`).
+- **Upstream stat names do not map onto `ItemStatType`** (`spirit` is `SPIRIT_UNUSED`;
+  `spell_damage` / `spell_healing` have no clean match), so they stay raw under `upstream_stats`
+  (`primary` / `secondary` / `special` / `other`, verbatim — `secondary` can hold free text such as
+  `use_1`). Gap items have no `stats`, `armor` or `weapon` field. The only declared name table is
+  `CROSSCHECK_STAT_MAP` (strength/agility/stamina/intellect), used solely for the cross-check.
+  `rarity` → `ItemQuality` and `bind` → `ItemBonding` go through declared tables
+  (`RARITY_TO_QUALITY_ID`, `BIND_TO_BONDING_ID`) onto the snapshotted enum names.
+
+### Provenance
+
+Every wowtbc-sourced row carries `provenance: { source: "wowtbc-warcraftforever", discovered,
+fetched_at }`:
+
+- `discovered` is **tri-state** — `true`, `false`, or `null` when upstream omits the key. In the
+  2026-09-23 fetch: 334 true, 0 false, 994 null.
+- `fetched_at` is the page's cache mtime; `meta.fetched_at` is the oldest of them.
+- This is **datamined community data**: never presented as build-derived, never as an observed
+  drop.
+
+**Drop chances are Vanilla-observed.** Upstream's `drop_chance` appears only on reused-Vanilla
+items; it is carried as `vanilla_drop_chance` and **only when `content` is `vanilla`**. An item is
+`forever-new` if its dungeon is new, upstream flags it in a quest's `new` list, or its id is at or
+above `FOREVER_NEW_ITEM_ID_FLOOR` (250000 — the ingest notes any upstream-new id below it). New
+items in reused dungeons (e.g. 273289 Ogre Loincloth ← Rhahk'Zor) therefore never show a rate, and
+a quest reward never carries one.
+
+### Counts (build `1.60.1.69977`, fetched 2026-09-23)
+
+| | |
+|---|---|
+| upstream items | 1,328 |
+| gap items filled (no `ItemSparse` row) | **1,311** — 1,223 Vanilla, 88 Forever-new |
+| bosses / boss → item mappings | 213 / 870 |
+| trash mappings | 385 |
+| quests / quest → reward mappings | 103 / 232 |
+| AtlasLoot unresolved rows now corroborated | vanilla 1,289 of 2,048; forever-new **46 of 46** |
+| boss mappings vs AtlasLoot (200 matched bosses) | 797 agree, 12 only wowtbc, 88 only AtlasLoot |
+
+wowtbc lists uncommon-and-better only (57 Deadmines items vs AtlasLoot's 59).
+
 ## Known data-source limits
 
 - **The item catalog is not a complete item list.** wago's `ItemSparse` export for Forever
-  builds carries ~19.2k rows and omits many items that exist in game — e.g. 14149
-  *Subterranean Cape* is live (Wowhead's Forever environment has it) but absent from the
-  export, consistently across builds `.69876`–`.69977`. `--audit-loot` quantifies this:
-  around a third of reused-Vanilla loot rows resolve to a catalog item, the rest report
-  `unknown` rather than silently vanishing.
-- **Every `forever-new` loot row is unresolvable** against the live build's items, which is
-  itself evidence those ids are speculative. They stay flagged, never promoted.
+  builds carries ~19.2k rows while its `Item` table lists 31,675 ids — ~12.5k items ship with no
+  name/stats row (e.g. 14149 *Subterranean Cape*, live in game, absent from the export across
+  builds `.69876`–`.69977`). `--audit-loot` quantifies this: around a third of reused-Vanilla loot
+  rows resolve to a build item. `--ingest-wowtbc` fills 1,311 of the gap for dungeon loot; the rest
+  still report `unknown` rather than silently vanishing.
+- **`forever-new` loot rows fail to resolve only because the build has no `ItemSparse` row** for
+  them, not because the ids are speculative: a second datamine (wowtbc) lists all 46 of them,
+  with names and bosses. They stay flagged `forever-new` (datamined, not observed), and resolve by
+  name through the wowtbc gap items.
 - **Observed drop rates for Forever do not exist yet.** `drop_rates` in the extract are
   upstream's *Vanilla*-observed percentages and are never inferred for new content.
 - **No durability.** This build's `ItemSparse` has no durability column at all, so durability is
@@ -288,6 +395,7 @@ Instance names are resolved from the Forever build's own `AreaTable`.
 ## Related
 
 - `forever/README.md` — directory layout
+- `src/lib/forever-wowtbc.ts` — the wowtbc ingest, authority and provenance rules
 - `.tome/widgets/ForeverItemTable.tsx` — the browser widget; `lib/quality.ts` and
   `lib/ItemTooltip.tsx` are shared with the retail Paperdoll and ilvl chart
 - `docs/loot-tools.md` — the retail Journal loot path (deliberately separate)

@@ -119,17 +119,28 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 ### WoW Forever (no credentials, no Blizzard API)
 
 **Forever** is Vanilla content on the retail engine. The Blizzard API is dark for its beta, so
-`forever.ts` sources everything from wago.tools DB2 exports plus a vendored loot extract. Run it
+`forever.ts` sources everything from wago.tools DB2 exports, a vendored AtlasLoot extract, and a
+locally ingested copy of wowtbc.gg's datamined dungeon tables. Run it
 with plain `bun run`, **not** `./run` — it needs no credentials and must never touch the API.
 
 | Tool | Purpose | Key flags |
 |------|---------|-----------|
-| `forever.ts` | Forever item catalog, computed stats and reused-Vanilla loot | `--build-info`, `--refresh-enums`, `--ingest`, `--item <id>`, `--search <text>`, `--list-instances`, `--loot <instance>`, `--item-sources <id>`, `--audit-loot`, plus `--build`, `--limit`, `--no-cache` |
+| `forever.ts` | Forever item catalog, computed stats, gap items and provenance-stamped loot sources | `--build-info`, `--refresh-enums`, `--ingest`, `--ingest-wowtbc`, `--item <id>`, `--search <text>`, `--list-instances`, `--loot <instance>`, `--item-sources <id>`, `--audit-loot`, plus `--build`, `--limit`, `--no-cache` |
 
-Always say "Forever", never "Classic". Run `--ingest` once per build before the query flags.
-New-content loot is **not known** — rows flagged `forever-new` / `unknown-new-content` are
-upstream datamining and must be presented as unverified, never as confirmed drops. Full
-reference: `docs/forever-data.md`.
+Always say "Forever", never "Classic". Run `--ingest` once per build, then `--ingest-wowtbc`
+(fills ~1.3k items the build has no stats row for, plus boss/trash/quest sources), before the
+query flags. Presenting results:
+
+- **Every drop source carries a `source` stamp** (`atlaslootclassic-extract` /
+  `wowtbc-warcraftforever`) — say which. Both are datamined, never observed drops.
+- **Gap items** (`gap_item`, or `data_source: wowtbc-warcraftforever`) have datamined names and
+  raw `upstream_stats` — present those as upstream's figures, not build-computed stats.
+- **Drop rates** appear only as `vanilla_drop_chance` (Vanilla-observed) and never for
+  `forever-new` content. Don't invent one.
+- A dungeon with `status: unknown` (e.g. Shaper's Terrace) has **unknown** loot — not "no loot".
+- `discovered: null` means upstream didn't say, not false.
+
+Full reference: `docs/forever-data.md`.
 
 ### Character Profile
 
@@ -245,11 +256,14 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 ```bash
 bun run src/forever.ts --build-info --pretty        # current 1.60.1.x build
 bun run src/forever.ts --ingest                     # ~19k items into forever/catalog/
+bun run src/forever.ts --ingest-wowtbc              # wowtbc gap items + boss/quest sources
 bun run src/forever.ts --item 12640 --pretty        # Lionheart Helm, computed stats
+bun run src/forever.ts --item 270227 --pretty       # gap item (no ItemSparse row), via wowtbc
+bun run src/forever.ts --loot "Hall of Thanes" --pretty   # bosses, trash, quests
 bun run src/forever.ts --search "Lionheart" --pretty
 bun run src/forever.ts --list-instances --pretty
 bun run src/forever.ts --loot "The Deadmines" --pretty
-bun run src/forever.ts --audit-loot --pretty        # loot rows vs. the live build
+bun run src/forever.ts --audit-loot --pretty        # loot rows vs. the build; wowtbc vs. AtlasLoot
 ```
 
 ### Account profile (protected)
