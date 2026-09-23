@@ -49,6 +49,7 @@ interface Props {
   saveState?: (patch: Record<string, unknown>) => void;
 }
 
+// In-game class colours — game constants, not season data.
 const CLASS_COLOR: Record<string, string> = {
   "Death Knight": "#C41E3A",
   "Demon Hunter": "#A330C9",
@@ -65,6 +66,7 @@ const CLASS_COLOR: Record<string, string> = {
   Warrior: "#C69B6D",
 };
 
+// Character-sheet slot layout — fixed by the game UI, not season data.
 const LEFT_SLOTS = ["Head", "Neck", "Shoulders", "Back", "Chest", "Wrist"];
 const RIGHT_SLOTS = ["Hands", "Waist", "Legs", "Feet", "Ring 1", "Ring 2"];
 const BOTTOM_SLOTS = ["Main Hand", "Trinket 1", "Trinket 2", "Off Hand"];
@@ -281,6 +283,7 @@ export default function Paperdoll({ character, gear, title, characters, selected
     return map;
   }, [gear]);
 
+  // Enchantable slots are set per expansion, not per season; the season model does not carry them.
   const ENCHANTABLE_SLOTS = ["Back", "Chest", "Wrist", "Legs", "Feet", "Ring 1", "Ring 2", "Main Hand"];
 
   const enchantSummary = useMemo(() => {

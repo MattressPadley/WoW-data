@@ -24,8 +24,8 @@ interface Props {
   changedFields?: string[];
 }
 
-const TRACK_ORDER = ["myth", "hero", "champion", "veteran", "adventurer"];
-
+// Track names are fixed presentation keys (the same palette CrestSources and
+// TrackSources use); which tracks exist and their order come from `tracks`.
 const TRACK_COLOR: Record<string, string> = {
   myth: colors.chart5,
   hero: colors.chart2,
@@ -34,6 +34,9 @@ const TRACK_COLOR: Record<string, string> = {
   adventurer: colors.chart4,
   crafted: colors.chart6,
 };
+
+// Tracks a season adds beyond the named palette still get a distinct colour.
+const FALLBACK_COLORS = [colors.chart6, colors.chart1, colors.chart4, colors.chart3];
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -68,7 +71,10 @@ function ItemIcon({ item, size = 24 }: { item: GearItem; size?: number }) {
 export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Level by Track", changedFields }: Props) {
   const rows = useMemo(() => {
     if (!tracks) return [];
-    return TRACK_ORDER.filter((k) => tracks[k]).map((k) => ({ key: k, ...tracks[k] }));
+    // Highest track first, ordered by the season's own ilvl ranges.
+    return Object.entries(tracks)
+      .map(([k, t]) => ({ key: k, ...t }))
+      .sort((a, b) => b.max_ilvl - a.max_ilvl || b.min_ilvl - a.min_ilvl);
   }, [tracks]);
 
   const trackFloor = useMemo(() => {
@@ -97,6 +103,7 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
   }, [rows, craftedRows, visibleGear]);
 
   const { chartMin, chartMax } = useMemo(() => {
+    // Placeholder axis only — never shown, since no ranges means the empty state renders.
     if (allRanges.length === 0) return { chartMin: 200, chartMax: 300 };
     const lo = Math.min(...allRanges.map((r) => r.min));
     const hi = Math.max(...allRanges.map((r) => r.max));
@@ -136,7 +143,7 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
         ) : (
           <>
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", flex: 1, minHeight: 0 }}>
-              {rows.map((row) => (
+              {rows.map((row, i) => (
                 <DumbbellRow
                   key={row.key}
                   label={capitalize(row.key)}
@@ -144,7 +151,7 @@ export default function IlvlRangeChart({ tracks, gear, crafted, title = "Item Le
                   max={row.max_ilvl}
                   chartMin={chartMin}
                   chartMax={chartMax}
-                  color={TRACK_COLOR[row.key] ?? colors.chart1}
+                  color={TRACK_COLOR[row.key] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]!}
                   labelWidth={labelWidth}
                   gearItems={gearByTrack[row.key]}
                   rowHeight={rowHeight}
