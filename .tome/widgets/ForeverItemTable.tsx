@@ -13,6 +13,17 @@ import {
   type ColumnDef,
 } from "@tome/ui";
 import { qualityColor, qualityRank } from "./lib/quality";
+import {
+  buildDropIndex,
+  facetItemIds,
+  facetOptionLabel,
+  facetOptions,
+  instanceLabel,
+  matchesQuery,
+  sourceLabel,
+  FACET_ALL,
+  type InstanceEntry,
+} from "./lib/forever-filters";
 import { ItemTooltipCard, TooltipLine, TOOLTIP_EFFECT, TOOLTIP_FLAVOR, TOOLTIP_MUTED, TOOLTIP_TEXT } from "./lib/ItemTooltip";
 
 /* ── The `forever/catalog/items-view.json` row shape ── */
@@ -69,6 +80,8 @@ interface ForeverItem {
   upstream_stats?: Record<string, Record<string, number | string>>;
   /** Drop/quest sources, each stamped with where it came from. Absent = none known. */
   drop_sources?: {
+    /** wowtbc dungeon slug — what the instance facet joins on, never the name. */
+    dungeon_key: string;
     dungeon: string;
     kind: "boss" | "trash" | "quest";
     name?: string;
@@ -84,6 +97,12 @@ interface ViewMeta {
   gap_item_count?: number;
   /** The catalogue's own sentence about when a drop source is (not) shown. Rendered verbatim. */
   drop_sources_unknown?: string;
+  /** When the wowtbc extract was fetched; null when none is ingested. */
+  wowtbc_fetched_at?: string | null;
+  /** The ingest hint, set when no wowtbc extract is ingested. */
+  wowtbc_missing?: string;
+  /** Every instance either loot source lists, unknown ones included. */
+  instances?: InstanceEntry[];
 }
 
 interface Props {
@@ -150,11 +169,9 @@ function triggerLabel(effect: ForeverItemEffect): string {
   return effect.trigger_type === 0 ? "Use:" : "Equip:";
 }
 
-const SOURCE_LABEL: Record<string, string> = { "wowtbc-warcraftforever": "wowtbc.gg, datamined" };
-
 function sourceLine(s: NonNullable<ForeverItem["drop_sources"]>[number]): string {
   const where = s.kind === "trash" ? `${s.dungeon} trash` : s.kind === "quest" ? `Quest: ${s.name} (${s.dungeon})` : `${s.name} — ${s.dungeon}`;
-  return `${where} [${SOURCE_LABEL[s.source] ?? s.source}]`;
+  return `${where} [${sourceLabel(s.source)}]`;
 }
 
 function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropSourceNote?: string }) {
@@ -230,7 +247,7 @@ function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropS
       )}
       {item.data_source && (
         <TooltipLine color={TOOLTIP_MUTED} top={6}>
-          Not in this build&apos;s stats table — name and upstream stats are datamined ({SOURCE_LABEL[item.data_source] ?? item.data_source})
+          Not in this build&apos;s stats table — name and upstream stats are datamined ({sourceLabel(item.data_source)})
         </TooltipLine>
       )}
       {item.drop_sources ? (
@@ -260,6 +277,14 @@ function NameCell({ item, dropSourceNote }: { item: ForeverItem; dropSourceNote?
     >
       <ItemIcon item={item} />
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+      {item.data_source && (
+        <span
+          title={`Not in this build's stats table — ${sourceLabel(item.data_source)}`}
+          style={{ fontSize: 10, fontWeight: 400, color: colors.textDisabled, flexShrink: 0 }}
+        >
+          datamined
+        </span>
+      )}
       <Tooltip><ForeverItemTooltip item={item} dropSourceNote={dropSourceNote} /></Tooltip>
     </div>
   );
@@ -345,9 +370,74 @@ type RichColumn = Omit<ColumnDef<ForeverItem>, "key" | "header"> & { key: SortKe
 const ROW_HEIGHT = ICON_SIZE + 14;
 const OVERSCAN = 10;
 
+/* ── Instance → boss facet ── */
+
+function InstanceFacet({
+  wowtbcMissing, wowtbcHint, hasIndex, instance, instanceKey, instanceOptions, onInstance, facetOptions: options, facetOption, onFacet,
+}: {
+  wowtbcMissing: boolean;
+  wowtbcHint: string;
+  hasIndex: boolean;
+  instance: InstanceEntry | undefined;
+  instanceKey: string;
+  instanceOptions: { value: string; label: string }[];
+  onInstance: (key: string) => void;
+  facetOptions: ReturnType<typeof facetOptions>;
+  facetOption: ReturnType<typeof facetOptions>[number] | undefined;
+  onFacet: (value: string) => void;
+}) {
+  // No wowtbc extract means nothing can resolve: say how to fix it, never show an empty control.
+  if (wowtbcMissing) {
+    return <Text size="xs" color={colors.textDisabled}>Instance / boss filter unavailable — {wowtbcHint}</Text>;
+  }
+  if (!hasIndex) {
+    return (
+      <Text size="xs" color={colors.textDisabled}>
+        Instance / boss filter unavailable — this view has no instance index; regenerate it with
+        {" "}<code>bun run src/forever.ts --ingest</code>
+      </Text>
+    );
+  }
+  const unknown = facetOption?.unknown;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Select aria-label="Instance" options={instanceOptions} value={instanceKey} onChange={(e) => onInstance(e.target.value)} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Select
+            aria-label="Boss"
+            disabled={!instance}
+            options={instance ? options.map((o) => ({ value: o.value, label: facetOptionLabel(o) })) : [{ value: FACET_ANY, label: "Boss / trash / quest…" }]}
+            value={facetOption?.value ?? FACET_ANY}
+            onChange={(e) => onFacet(e.target.value)}
+          />
+        </div>
+      </div>
+      {instance && (
+        <Text size="xs" color={colors.textDisabled}>
+          {unknown ? `Unknown — ${unknown}. ` : ""}
+          Sources: {instance.sources.map((s) => sourceLabel(s.source)).join(" · ")}
+          {instance.kind === "raid" ? " · raid loot is not resolved in this view yet" : ""}
+        </Text>
+      )}
+    </div>
+  );
+}
+
 /* ── Widget ── */
 
 const ALL = "__all__";
+const NO_INSTANCE = "";
+const FACET_ANY = `${FACET_ALL}|`;
+const WOWTBC_HINT = "no wowtbc extract — run: bun run src/forever.ts --ingest-wowtbc";
+
+/** Dungeons before raids, then by name — unknown instances stay in place, labelled. */
+function compareInstances(a: InstanceEntry, b: InstanceEntry): number {
+  if (a.kind !== b.kind) return a.kind === "dungeon" ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
 
 export default function ForeverItemTable({ items, meta, title = "Forever Items", changedFields, savedState, saveState }: Props) {
   const rows = useMemo(() => items ?? [], [items]);
@@ -358,6 +448,8 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
   const [statName, setStatName] = useState(() => (savedState?.statName as string) ?? ALL);
   const [sortKey, setSortKey] = useState<SortKey>(() => (savedState?.sortKey as SortKey) ?? "item_level");
   const [direction, setDirection] = useState<SortDirection>(() => (savedState?.sortDirection as SortDirection) ?? "desc");
+  const [instanceKey, setInstanceKey] = useState(() => (savedState?.instanceKey as string) ?? NO_INSTANCE);
+  const [facetValue, setFacetValue] = useState(() => (savedState?.facetValue as string) ?? FACET_ANY);
 
   const handleSort = useCallback((key: SortKey) => {
     // First click on a new column sorts descending — the interesting end for
@@ -369,8 +461,8 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
   }, []);
 
   useEffect(() => {
-    saveState?.({ query, qualities, slots, statName, sortKey, sortDirection: direction });
-  }, [query, qualities, slots, statName, sortKey, direction, saveState]);
+    saveState?.({ query, qualities, slots, statName, sortKey, sortDirection: direction, instanceKey, facetValue });
+  }, [query, qualities, slots, statName, sortKey, direction, instanceKey, facetValue, saveState]);
 
   /* Facets, counted off the data rather than assumed. */
   const qualityOptions = useMemo(() => {
@@ -395,18 +487,34 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
     return [{ value: ALL, label: "Stat column…" }, ...[...names].sort().map((n) => ({ value: n, label: n }))];
   }, [rows]);
 
+  /* Instance → boss facet. The mapping is already on the rows; this only indexes it, keyed on the wowtbc dungeon key. */
+  const wowtbcMissing = meta?.wowtbc_fetched_at == null;
+  const instances = useMemo(() => [...(meta?.instances ?? [])].sort(compareInstances), [meta?.instances]);
+  const dropIndex = useMemo(() => buildDropIndex(rows), [rows]);
+  const instance = wowtbcMissing ? undefined : instances.find((i) => i.key === instanceKey);
+  const instanceOptions = useMemo(
+    () => [{ value: NO_INSTANCE, label: "Any instance…" }, ...instances.map((i) => ({ value: i.key, label: instanceLabel(i) }))],
+    [instances],
+  );
+  const bossOptions = useMemo(() => (instance ? facetOptions(instance, dropIndex) : []), [instance, dropIndex]);
+  const facetOption = bossOptions.find((o) => o.value === facetValue) ?? bossOptions[0];
+  const facetIds = useMemo(
+    () => (instance ? facetItemIds(dropIndex, instance.key, facetOption?.value ?? FACET_ANY) : null),
+    [instance, dropIndex, facetOption],
+  );
+
   const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     const qualitySet = new Set(qualities);
     const slotSet = new Set(slots);
     const filtered = rows.filter((item) => {
-      if (needle && !item.name.toLowerCase().includes(needle)) return false;
+      if (facetIds && !facetIds.has(item.id)) return false;
+      if (!matchesQuery(item, query)) return false;
       if (qualitySet.size > 0 && (!item.quality || !qualitySet.has(item.quality))) return false;
       if (slotSet.size > 0 && (!item.inventory_type || !slotSet.has(item.inventory_type))) return false;
       return true;
     });
     return [...filtered].sort((a, b) => compareRows(a, b, sortKey, direction, statName));
-  }, [rows, query, qualities, slots, sortKey, direction, statName]);
+  }, [rows, query, qualities, slots, sortKey, direction, statName, facetIds]);
 
   /* Windowing: only the visible slice is handed to DataGrid. */
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -427,7 +535,7 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
     setScrollTop(0);
-  }, [query, qualities, slots, sortKey, direction, statName]);
+  }, [query, qualities, slots, sortKey, direction, statName, instanceKey, facetValue]);
 
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const windowSize = Math.ceil((viewportHeight || 600) / ROW_HEIGHT) + OVERSCAN * 2;
@@ -516,7 +624,7 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <TextInput
-                  placeholder="Search item names…"
+                  placeholder="Search item names, or an item ID…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -525,6 +633,18 @@ export default function ForeverItemTable({ items, meta, title = "Forever Items",
                 <Select options={statOptions} value={statName} onChange={(e) => setStatName(e.target.value)} />
               </div>
             </div>
+            <InstanceFacet
+              wowtbcMissing={wowtbcMissing}
+              wowtbcHint={meta?.wowtbc_missing ?? WOWTBC_HINT}
+              hasIndex={meta?.instances !== undefined}
+              instance={instance}
+              instanceKey={instance ? instanceKey : NO_INSTANCE}
+              instanceOptions={instanceOptions}
+              onInstance={(key) => { setInstanceKey(key); setFacetValue(FACET_ANY); }}
+              facetOptions={bossOptions}
+              facetOption={facetOption}
+              onFacet={setFacetValue}
+            />
             <ChipGroup aria-label="Quality" options={qualityOptions} value={qualities} onChange={setQualities} />
             <div style={{ maxHeight: 62, overflowY: "auto" }}>
               <ChipGroup aria-label="Slot" options={slotOptions} value={slots} onChange={setSlots} />

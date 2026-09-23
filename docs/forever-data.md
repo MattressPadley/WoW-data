@@ -227,8 +227,11 @@ tome space switch "Forever Items"
 
 The widget owns its own sorting **and row windowing** — `DataGrid` does neither, and 19k `<img>`
 rows at once is not an option. It renders ~35 rows around the scroll position regardless of how
-far down you are. Name search, quality and slot facets, the sort column and the optional per-stat
-column all persist through `savedState`.
+far down you are. Search, quality and slot facets, the instance → boss facet, the sort column
+and the optional per-stat column all persist through `savedState`.
+
+**Search** matches item names by substring; an **all-digit** query is an item ID and matches
+exactly (a substring match on ids would hit thousands of rows).
 
 **Drop sources are shown only with provenance.** After `--ingest-wowtbc`, a row carries
 `drop_sources` (boss / trash / quest, each stamped with `source: wowtbc-warcraftforever`,
@@ -239,7 +242,48 @@ tooltip of every source-less item. Gap items (no `ItemSparse` row) join the view
 `data_source: wowtbc-warcraftforever`, their `discovered` flag, and raw `upstream_stats` — never
 `stats`, which means build-computed. A gap item whose upstream row gives no item level or
 required level carries `null` there, never `0` (upstream omits `ilvl` on most rows).
-`meta.gap_item_count` says how many.
+`meta.gap_item_count` says how many. Each drop source also carries `dungeon_key`, the wowtbc
+dungeon slug (`hall-of-thanes`).
+
+### Instance → boss facet
+
+`meta.instances[]` is the index the facet lists: every instance either loot source knows (42 —
+34 dungeons, 8 raids incl. AtlasLoot's "World Bosses"), built by `instanceIndex()` from the same
+`mergeInstances()` pairing `--list-instances` uses. Each entry is `{key, name, kind, is_new,
+status, unknown[], bosses[{name, status, unknown?}], has_trash, quests[], sources[]}`. It carries
+no item ids — the boss → item mapping is already on the rows (`drop_sources[]`), and the widget
+indexes it once (`.tome/widgets/lib/forever-filters.ts`, tested in
+`src/lib/forever-view-filters.test.ts` — tests can't live under `widgets/lib/`, tome builds
+every file there for the browser).
+
+- **Join on the key, never the name.** `key` is the wowtbc slug wherever wowtbc lists the
+  instance, and the widget matches it against `drop_sources[].dungeon_key` + boss name. Names
+  differ between sources — `name` is AtlasLoot's where both list it ("The Hall of Thanes"), while
+  drop sources say "Hall of Thanes".
+- **Boss `status`** is defined here (wowtbc's `status` is per dungeon): `listed` = wowtbc's table
+  for a listed dungeon names the boss, so its items resolve; `unknown` = nothing can resolve to it
+  in this view (AtlasLoot-only boss, raid, unknown dungeon), with the reason. AtlasLoot's loot
+  groupings — entries with neither an npc id nor a map boss id ("Trash", "Keys", "Books",
+  "Plans", "Tier 3 Sets") — are not bosses and are left out.
+- **Trash and quests are their own facet values**, never bosses: "Trash", "All quest rewards",
+  then each quest.
+- **Unknown renders as unknown.** An instance or boss nothing resolves to shows "— unknown" with
+  its reason, never a zero-and-complete count. The 7 wowtbc-unknown dungeons (Shaper's Terrace,
+  City of Dalaran 9/9, Excavation Site: Wetlands 4/4, …) all read this way.
+- **Both sources are datamined.** The facet labels `sources[]` (AtlasLoot, stamped with its
+  upstream commit; wowtbc, stamped with `fetched_at`) as datamined, and gap-item rows carry a
+  "datamined" tag — neither is presented as observed.
+- **v1 scope: wowtbc dungeons.** Item → boss resolution uses the rows' wowtbc-only
+  `drop_sources`, so raids and AtlasLoot-only bosses list as unknown. Moving AtlasLoot into
+  per-item `drop_sources` (so raid items resolve) is a follow-up; world bosses need a
+  source that doesn't exist yet.
+- **Degrades, never fails.** No wowtbc extract (`meta.wowtbc_fetched_at: null`) → the facet
+  shows the `--ingest-wowtbc` hint (`meta.wowtbc_missing`) instead of a control. No vendored
+  AtlasLoot extract → the index lists wowtbc dungeons only and `meta.atlasloot_missing` says why;
+  the ingest still succeeds.
+- **Staleness.** The index is rebuilt by `--ingest` and `--ingest-wowtbc`, not by
+  `scripts/extract-atlasloot.ts` — re-run `--ingest-wowtbc` after regenerating the AtlasLoot
+  extract.
 
 ### Icon art comes from a third-party CDN
 

@@ -29,12 +29,14 @@ import {
   type WagoOptions,
 } from "./wago.ts";
 import {
+  WOWTBC_MISSING,
   WOWTBC_SOURCE,
   ingestWowtbc,
   loadWowtbc,
   sameName,
   CROSSCHECK_STAT_MAP,
   type ForeverGapItem,
+  type WowtbcDungeon,
   type WowtbcExtract,
   type WowtbcProvenance,
   type WowtbcUpstreamStats,
@@ -984,7 +986,8 @@ export async function ingestCatalog(build: string, noCache: boolean): Promise<Fo
 
   await mkdir(CATALOG_DIR, { recursive: true });
   await Bun.write(CATALOG_FILE, JSON.stringify(catalog));
-  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, await loadWowtbc())));
+  const [wowtbc, loot] = await Promise.all([loadWowtbc(), loadDungeonLootIfPresent()]);
+  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, wowtbc, loot)));
   return catalog;
 }
 
@@ -1010,7 +1013,7 @@ export async function ingestWowtbcTables(build: string, noCache: boolean): Promi
     noCache,
     FOREVER_PRODUCT,
   );
-  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, extract)));
+  await Bun.write(ITEMS_VIEW_FILE, JSON.stringify(projectItemsView(catalog, extract, await loadDungeonLootIfPresent())));
   return extract;
 }
 
@@ -1080,6 +1083,8 @@ export interface ForeverItemView {
 }
 
 export interface ForeverViewDropSource {
+  /** wowtbc dungeon slug. The join key for the instance index — names differ between sources, keys do not. */
+  dungeon_key: string;
   dungeon: string;
   kind: "boss" | "trash" | "quest";
   /** Boss or quest name; absent for trash. */
@@ -1102,6 +1107,12 @@ export interface ForeverItemsView {
     wowtbc_fetched_at: string | null;
     /** Restated on the view so a consumer never reads an absent `drop_sources` as "drops from nothing". */
     drop_sources_unknown: string;
+    /** Every instance either loot source lists, including ones whose loot is unknown. See {@link instanceIndex}. */
+    instances: ForeverInstanceIndexEntry[];
+    /** Set when no wowtbc extract is ingested: nothing in the index resolves to items. */
+    wowtbc_missing?: string;
+    /** Set when the vendored AtlasLoot extract is missing: the index lists wowtbc dungeons only. */
+    atlasloot_missing?: string;
   };
   items: ForeverItemView[];
 }
@@ -1129,6 +1140,7 @@ function viewDropSources(wowtbc: WowtbcExtract | null, id: number): ForeverViewD
   if (!sources || sources.length === 0) return null;
   const item = wowtbc!.items[String(id)]!;
   return sources.map((s) => ({
+    dungeon_key: s.dungeon_key,
     dungeon: s.dungeon,
     kind: s.kind,
     ...present("name", s.name),
@@ -1160,7 +1172,15 @@ function projectGapItem(gap: ForeverGapItem, wowtbc: WowtbcExtract): ForeverItem
   };
 }
 
-export function projectItemsView(catalog: ForeverCatalog, wowtbc: WowtbcExtract | null = null): ForeverItemsView {
+/**
+ * Project the catalog into the display view. `loot` is optional so a missing
+ * vendored extract degrades the instance index rather than failing ingest.
+ */
+export function projectItemsView(
+  catalog: ForeverCatalog,
+  wowtbc: WowtbcExtract | null = null,
+  loot: LootExtract | null = null,
+): ForeverItemsView {
   // Re-checked here: a newer build may since have shipped an `ItemSparse` row, and then the build wins.
   const buildIds = new Set(catalog.items.map((i) => i.id));
   const gapItems = wowtbc ? Object.values(wowtbc.gap_items).filter((g) => !buildIds.has(g.id)) : [];
@@ -1210,6 +1230,9 @@ export function projectItemsView(catalog: ForeverCatalog, wowtbc: WowtbcExtract 
       gap_item_count: gapItems.length,
       wowtbc_fetched_at: wowtbc?.meta.fetched_at ?? null,
       drop_sources_unknown: DROP_SOURCES_UNKNOWN,
+      instances: instanceIndex(loot, wowtbc),
+      ...present("wowtbc_missing", wowtbc ? null : WOWTBC_MISSING),
+      ...present("atlasloot_missing", loot ? null : ATLASLOOT_MISSING),
     },
     items,
   };
@@ -1285,6 +1308,143 @@ export async function loadDungeonLoot(): Promise<LootExtract> {
     );
   }
   return (await file.json()) as LootExtract;
+}
+
+/**
+ * The vendored extract, or null when the file is missing. For the view
+ * projection only: it degrades the instance index rather than failing ingest.
+ * A present-but-corrupt file still throws.
+ */
+export async function loadDungeonLootIfPresent(): Promise<LootExtract | null> {
+  const file = Bun.file(LOOT_FILE);
+  return (await file.exists()) ? ((await file.json()) as LootExtract) : null;
+}
+
+export const ATLASLOOT_MISSING = `no vendored AtlasLoot extract at ${LOOT_FILE} — regenerate with: bun run scripts/extract-atlasloot.ts`;
+
+// --- Instance merge and index ---------------------------------------------
+
+/** One instance as the two loot sources see it. At least one side is set. */
+export interface MergedInstance {
+  atlasloot: LootInstance | null;
+  wowtbc: WowtbcDungeon | null;
+}
+
+/**
+ * Pair AtlasLoot instances with wowtbc dungeons: AtlasLoot order first, then
+ * the dungeons only wowtbc lists. The two name things differently ("The Hall
+ * of Thanes" vs "Hall of Thanes"), so pairing is loose — which is exactly why
+ * anything joining against item drop sources must use the wowtbc key, never a
+ * display name.
+ */
+export function mergeInstances(loot: LootExtract | null, wowtbc: WowtbcExtract | null): MergedInstance[] {
+  const dungeons = Object.values(wowtbc?.dungeons ?? {});
+  const match = (name: string, key: string) =>
+    dungeons.find((d) => sameName(d.name, name) || sameName(d.key, key) || sameName(d.name, key));
+  const seen = new Set<string>();
+  const paired = (loot?.instances ?? []).map((i) => {
+    const w = match(i.name, i.key) ?? null;
+    if (w) seen.add(w.key);
+    return { atlasloot: i, wowtbc: w };
+  });
+  const wowtbcOnly = dungeons.filter((d) => !seen.has(d.key)).map((d) => ({ atlasloot: null, wowtbc: d }));
+  return [...paired, ...wowtbcOnly];
+}
+
+export type ForeverInstanceStatus = "listed" | "unknown";
+
+/**
+ * A boss in the instance index.
+ *
+ * wowtbc's `status` is per *dungeon*, so a boss's status is defined here:
+ * `listed` = wowtbc's table for a listed dungeon names this boss, so its items
+ * resolve through the rows' `drop_sources`; `unknown` = no item can resolve to
+ * it in this view (AtlasLoot-only boss, raid boss, unknown dungeon, or no wowtbc
+ * extract), with the reason in `unknown`.
+ */
+export interface ForeverInstanceBoss {
+  /** wowtbc's name when wowtbc lists the boss (it must match `drop_sources[].name`); else AtlasLoot's. */
+  name: string;
+  status: ForeverInstanceStatus;
+  unknown?: string;
+}
+
+export interface ForeverInstanceIndexEntry {
+  /** wowtbc dungeon slug — the join key against `drop_sources[].dungeon_key`. AtlasLoot's key only when wowtbc lacks the instance. */
+  key: string;
+  /** Display name: AtlasLoot's where both list the instance (matches `--list-instances`), else wowtbc's. */
+  name: string;
+  kind: "dungeon" | "raid";
+  is_new: boolean;
+  /** `unknown` = no item in this view resolves to the instance. Never read as "drops nothing". */
+  status: ForeverInstanceStatus;
+  unknown: string[];
+  bosses: ForeverInstanceBoss[];
+  /** wowtbc lists trash drops for the dungeon. */
+  has_trash: boolean;
+  /** wowtbc quest names, deduplicated. */
+  quests: string[];
+  /** Which sources list the instance, each stamped. Both are datamined, neither observed. */
+  sources: { source: string; fetched_at?: string; upstream_commit?: string }[];
+}
+
+const UNRESOLVED_INSTANCE =
+  "not in wowtbc's dungeon tables — item → boss resolution in this view uses those tables only (v1: dungeons; raids deferred)";
+const UNRESOLVED_BOSS =
+  "only in the AtlasLoot extract — wowtbc's table for this dungeon does not name it, so no item resolves to it in this view";
+
+/**
+ * AtlasLoot mixes loot groupings in with encounters ("Trash", "Trash Mobs",
+ * "Keys", "Books", "Plans", "Tier 3 Sets", "All bosses"). Those — and only
+ * those — carry neither an npc id nor an Atlas map boss id; every encounter has
+ * at least one. Trash stays a facet value of its own, never a boss.
+ */
+function isAtlasEncounter(boss: LootBoss): boolean {
+  return boss.npc_id !== null || boss.atlas_map_boss_id !== null;
+}
+
+/**
+ * The instance/boss index the item browser's facet lists.
+ *
+ * It lists every instance either source knows — including empty and raid ones —
+ * so the facet can show them as unknown instead of hiding them. It carries no
+ * item ids: the item → boss mapping is already on the view rows
+ * (`drop_sources[]`), joined on `key` + boss name.
+ */
+export function instanceIndex(loot: LootExtract | null, wowtbc: WowtbcExtract | null): ForeverInstanceIndexEntry[] {
+  return mergeInstances(loot, wowtbc).map(({ atlasloot: a, wowtbc: w }) => {
+    const resolvable = w !== null && w.status === "listed";
+    const instanceUnknown = !wowtbc ? WOWTBC_MISSING : !w ? UNRESOLVED_INSTANCE : (w.unknown[0] ?? UNRESOLVED_INSTANCE);
+    const bosses: ForeverInstanceBoss[] = [];
+    const wowtbcBosses = Object.keys(w?.bosses ?? {});
+    const claimed = new Set<string>();
+    for (const boss of (a?.bosses ?? []).filter(isAtlasEncounter)) {
+      const hit = resolvable ? wowtbcBosses.find((b) => !claimed.has(b) && sameName(b, boss.name)) : undefined;
+      if (hit) {
+        claimed.add(hit);
+        bosses.push({ name: hit, status: "listed" });
+      } else {
+        bosses.push({ name: boss.name, status: "unknown", unknown: resolvable ? UNRESOLVED_BOSS : instanceUnknown });
+      }
+    }
+    for (const name of wowtbcBosses) if (!claimed.has(name)) bosses.push({ name, status: "listed" });
+    const kind = a?.content_type && /raid/i.test(a.content_type) ? "raid" : "dungeon";
+    return {
+      key: w?.key ?? a!.key,
+      name: a?.name ?? w!.name,
+      kind,
+      is_new: w?.is_new ?? a?.provenance === "forever-new",
+      status: resolvable ? "listed" : "unknown",
+      unknown: resolvable ? [] : [instanceUnknown],
+      bosses,
+      has_trash: resolvable && (w.trash?.item_ids.length ?? 0) > 0,
+      quests: resolvable ? [...new Set(w.quests.map((q) => q.name))] : [],
+      sources: [
+        ...(a ? [{ source: ATLASLOOT_SOURCE, upstream_commit: loot!.meta.upstream.commit }] : []),
+        ...(w ? [{ source: WOWTBC_SOURCE, fetched_at: w.fetched_at }] : []),
+      ],
+    };
+  });
 }
 
 /** `source` label for rows from the vendored AtlasLootClassic extract. */

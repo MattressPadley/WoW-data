@@ -210,7 +210,7 @@ describe("items view with wowtbc", () => {
     expect(row).not.toHaveProperty("data_source");
     // Every stamped source carries all three provenance fields, not just `source`.
     expect(row.drop_sources).toEqual([{
-      dungeon: "The Deadmines", kind: "boss", name: "Rhahk'Zor", source: WOWTBC_SOURCE,
+      dungeon_key: "the-deadmines", dungeon: "The Deadmines", kind: "boss", name: "Rhahk'Zor", source: WOWTBC_SOURCE,
       discovered: true, fetched_at: "2026-09-23T00:00:01.000Z",
     }]);
   });

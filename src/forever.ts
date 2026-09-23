@@ -32,6 +32,7 @@ import {
   loadCatalog,
   nameLootEntries,
   loadDungeonLoot,
+  mergeInstances,
   refreshEnumSnapshots,
   resolveForeverBuild,
   resolveItemName,
@@ -200,9 +201,6 @@ try {
     );
   } else if (hasFlag("--list-instances")) {
     const [loot, wowtbc] = await Promise.all([loadDungeonLoot(), loadWowtbc()]);
-    const wowtbcDungeons = Object.values(wowtbc?.dungeons ?? {});
-    const matchWowtbc = (name: string, key: string) =>
-      wowtbcDungeons.find((d) => sameName(d.name, name) || sameName(d.key, key) || sameName(d.name, key));
     const summary = (d: WowtbcDungeon) => ({
       key: d.key,
       status: d.status,
@@ -217,37 +215,33 @@ try {
       ...(d.unknown.length > 0 ? { unknown: d.unknown } : {}),
       source: wowtbc!.meta.source,
     });
-    const seen = new Set<string>();
-    const instances = loot.instances.map((i) => {
-      const w = matchWowtbc(i.name, i.key);
-      if (w) seen.add(w.key);
-      return {
-        key: i.key,
-        name: i.name,
-        content_type: i.content_type,
-        provenance: i.provenance,
-        boss_count: i.bosses.length,
-        bosses_with_unknown_loot: i.bosses.filter((b) => b.loot_status === "unknown-new-content").length,
-        wowtbc: w ? summary(w) : null,
-      };
-    });
-    const wowtbcOnly = wowtbcDungeons
-      .filter((d) => !seen.has(d.key))
-      .map((d) => ({
-        key: d.key,
-        name: d.name,
-        content_type: "Dungeons",
-        provenance: d.is_new ? "forever-new" : "vanilla",
-        atlasloot: null,
-        wowtbc: summary(d),
-      }));
+    const instances = mergeInstances(loot, wowtbc).map(({ atlasloot: i, wowtbc: w }) =>
+      i
+        ? {
+            key: i.key,
+            name: i.name,
+            content_type: i.content_type,
+            provenance: i.provenance,
+            boss_count: i.bosses.length,
+            bosses_with_unknown_loot: i.bosses.filter((b) => b.loot_status === "unknown-new-content").length,
+            wowtbc: w ? summary(w) : null,
+          }
+        : {
+            key: w!.key,
+            name: w!.name,
+            content_type: "Dungeons",
+            provenance: w!.is_new ? "forever-new" : "vanilla",
+            atlasloot: null,
+            wowtbc: summary(w!),
+          }
+    );
     output(
       {
         ...loot.meta,
         wowtbc: wowtbc
           ? { source: wowtbc.meta.source, fetched_at: wowtbc.meta.fetched_at, dungeon_count: wowtbc.meta.dungeon_count }
           : { unknown: WOWTBC_MISSING },
-        instances: [...instances, ...wowtbcOnly],
+        instances,
       },
       pretty,
     );
