@@ -122,13 +122,13 @@ Legacy dungeons (Skyreach, Pit of Saron, etc.) have bloated journal loot tables 
 | Heroic | 230 | Adventurer 4/6 |
 | Mythic (M0) | 246 | Champion 1/6 |
 
-### Crest Drops
+### Crest Drops (Midnight S2)
 
 | Crest | Key Range |
 |-------|-----------|
-| Champion Dawncrest | +2 to +3 |
-| Hero Dawncrest | +4 to +8 |
-| Myth Dawncrest | +9+ |
+| Champion Mistcrest | +2 to +3 |
+| Hero Mistcrest | +4 to +8 |
+| Myth Mistcrest | +9+ |
 
 ## Tool: season.ts
 

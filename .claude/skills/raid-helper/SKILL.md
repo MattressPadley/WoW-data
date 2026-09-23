@@ -106,7 +106,7 @@ seasons/
 
 ```bash
 # 1. Bootstrap with a raid from the new season
-./run src/season.ts --bootstrap --slug new-season-s1 --raid-id <id> --name "Season Name" --expansion "Expansion" --patch "X.Y"
+./run src/season.ts --bootstrap --slug new-season-s1 --raid-id <id> --name "Season Name" --expansion "Expansion" --patch "X.Y" --crest-suffix "<Suffix>"
 
 # 2. Verify
 ./run src/season.ts --info --pretty

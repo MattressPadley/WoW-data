@@ -475,9 +475,18 @@ function findBonusListGroupForContext(
 export async function bootstrapSeason(
   slug: string,
   sampleItemId: number,
-  opts: { noCache?: boolean; name?: string; expansion?: string; patch?: string } = {},
+  opts: { noCache?: boolean; name?: string; expansion?: string; patch?: string; crestSuffix?: string } = {},
 ): Promise<SeasonData> {
   const noCache = opts.noCache ?? false;
+
+  // Crest suffix changes every season; without an explicit one, carry the
+  // current season's forward rather than assuming a fixed name.
+  let crestSuffix = opts.crestSuffix;
+  if (!crestSuffix) {
+    crestSuffix = await loadSeason().then((s) => s.crest_suffix).catch(() => undefined);
+    if (!crestSuffix) throw new Error("No current season to inherit crest_suffix from; pass --crest-suffix");
+    console.error(`No --crest-suffix given; inheriting "${crestSuffix}" from the current season — edit season.yaml if it changed.`);
+  }
 
   // Step 1: Get bonus list IDs per difficulty
   console.error(`Finding bonus tree data for item ${sampleItemId}...`);
@@ -572,7 +581,7 @@ export async function bootstrapSeason(
     track_ranks,
     raid_difficulty_track,
     boss_rank_rules,
-    crest_suffix: "Dawncrest",
+    crest_suffix: crestSuffix,
   };
 
   // Step 5: Write YAML files

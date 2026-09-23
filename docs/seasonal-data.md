@@ -126,7 +126,8 @@ The bootstrap process discovers real ilvl values by probing Wowhead tooltips wit
   --raid-id <id> \
   --name "Season Name" \
   --expansion "Expansion" \
-  --patch "X.Y"
+  --patch "X.Y" \
+  --crest-suffix "<Suffix>"   # e.g. Mistcrest; omitted → inherits the current season's suffix
 
 # 2. Verify the generated data
 ./run src/season.ts --info --pretty

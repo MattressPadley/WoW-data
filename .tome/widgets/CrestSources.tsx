@@ -7,26 +7,33 @@ interface Props {
   changedFields?: string[];
 }
 
-const CREST_ORDER = [
-  "Myth Dawncrest",
-  "Hero Dawncrest",
-  "Champion Dawncrest",
-  "Veteran Dawncrest",
-  "Adventurer Dawncrest",
-];
+// Crest names come from the season model ("<Tier> <crest_suffix>"), so key
+// order and color off the tier word rather than a season-specific suffix.
+const TIER_ORDER = ["myth", "hero", "champion", "veteran", "adventurer"];
 
-const CREST_COLOR: Record<string, string> = {
-  "Myth Dawncrest": colors.chart5,
-  "Hero Dawncrest": colors.chart2,
-  "Champion Dawncrest": colors.chart3,
-  "Veteran Dawncrest": colors.chart1,
-  "Adventurer Dawncrest": colors.chart4,
+const TIER_COLOR: Record<string, string> = {
+  myth: colors.chart5,
+  hero: colors.chart2,
+  champion: colors.chart3,
+  veteran: colors.chart1,
+  adventurer: colors.chart4,
 };
+
+function crestTier(crest: string): string {
+  return crest.split(" ")[0]?.toLowerCase() ?? "";
+}
+
+function tierRank(crest: string): number {
+  const i = TIER_ORDER.indexOf(crestTier(crest));
+  return i === -1 ? TIER_ORDER.length : i;
+}
 
 export default function CrestSources({ crestSources, title = "Crest Sources", changedFields }: Props) {
   const rows = useMemo(() => {
     if (!crestSources) return [];
-    return CREST_ORDER.filter((c) => crestSources[c]).map((c) => ({ crest: c, sources: crestSources[c] }));
+    return Object.keys(crestSources)
+      .sort((a, b) => tierRank(a) - tierRank(b))
+      .map((c) => ({ crest: c, sources: crestSources[c] ?? [] }));
   }, [crestSources]);
 
   const crestsChanged = changedFields?.includes("crestSources");
@@ -55,7 +62,7 @@ export default function CrestSources({ crestSources, title = "Crest Sources", ch
                   alignItems: "start",
                 }}
               >
-                <Text size="sm" weight={600} style={{ borderLeft: `3px solid ${CREST_COLOR[row.crest] ?? colors.textSecondary}`, paddingLeft: 8 }}>
+                <Text size="sm" weight={600} style={{ borderLeft: `3px solid ${TIER_COLOR[crestTier(row.crest)] ?? colors.textSecondary}`, paddingLeft: 8 }}>
                   {row.crest}
                 </Text>
                 <div style={{ color: colors.textSecondary, lineHeight: 1.5 }}>

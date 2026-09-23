@@ -25,14 +25,6 @@ const TRACK_COLOR: Record<string, string> = {
   adventurer: colors.chart4,
 };
 
-const CREST_COLOR: Record<string, string> = {
-  "Myth Dawncrest": colors.chart5,
-  "Hero Dawncrest": colors.chart2,
-  "Champion Dawncrest": colors.chart3,
-  "Veteran Dawncrest": colors.chart1,
-  "Adventurer Dawncrest": colors.chart4,
-};
-
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -85,7 +77,7 @@ export default function TrackSources({ tracks, title = "Track Sources", changedF
                 </div>
                 <div>
                   {row.crest ? (
-                    <Text size="sm" style={{ borderLeft: `3px solid ${CREST_COLOR[row.crest] ?? colors.textSecondary}`, paddingLeft: 8 }}>
+                    <Text size="sm" style={{ borderLeft: `3px solid ${TRACK_COLOR[row.key] ?? colors.textSecondary}`, paddingLeft: 8 }}>
                       {row.crest}
                     </Text>
                   ) : (

@@ -4,7 +4,7 @@
  *
  * Usage:
  *   ./run src/season.ts --bootstrap --slug midnight-s1 --raid-id 1314 [--item-id 249343] [--pretty]
- *   ./run src/season.ts --bootstrap --slug midnight-s1 --raid-id 1314 --name "Midnight Season 1" --expansion Midnight --patch 12.0
+ *   ./run src/season.ts --bootstrap --slug midnight-s1 --raid-id 1314 --name "Midnight Season 1" --expansion Midnight --patch 12.0 --crest-suffix Dawncrest
  *   ./run src/season.ts --info [--pretty]
  *   ./run src/season.ts --set-current midnight-s1
  */
@@ -56,6 +56,7 @@ try {
       name: getArg("--name"),
       expansion: getArg("--expansion"),
       patch: getArg("--patch"),
+      crestSuffix: getArg("--crest-suffix"),
     });
 
     output(season, pretty);
