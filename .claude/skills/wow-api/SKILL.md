@@ -116,6 +116,21 @@ The `./run` wrapper handles credentials automatically. All tools output **JSON b
 | `guild-crest.ts` | Query guild crest components | `--border-id`, `--emblem-id` |
 | `wow-token.ts` | Get WoW Token price | (none) |
 
+### WoW Forever (no credentials, no Blizzard API)
+
+**Forever** is Vanilla content on the retail engine. The Blizzard API is dark for its beta, so
+`forever.ts` sources everything from wago.tools DB2 exports plus a vendored loot extract. Run it
+with plain `bun run`, **not** `./run` — it needs no credentials and must never touch the API.
+
+| Tool | Purpose | Key flags |
+|------|---------|-----------|
+| `forever.ts` | Forever item catalog, computed stats and reused-Vanilla loot | `--build-info`, `--refresh-enums`, `--ingest`, `--item <id>`, `--search <text>`, `--list-instances`, `--loot <instance>`, `--item-sources <id>`, `--audit-loot`, plus `--build`, `--limit`, `--no-cache` |
+
+Always say "Forever", never "Classic". Run `--ingest` once per build before the query flags.
+New-content loot is **not known** — rows flagged `forever-new` / `unknown-new-content` are
+upstream datamining and must be presented as unverified, never as confirmed drops. Full
+reference: `docs/forever-data.md`.
+
 ### Character Profile
 
 | Tool | Purpose | Key flags |
@@ -226,6 +241,17 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 ./run src/character.ts --realm tichondrius --name thrall --statistics --pretty
 ```
 
+### Forever data (Vanilla content, retail engine)
+```bash
+bun run src/forever.ts --build-info --pretty        # current 1.60.1.x build
+bun run src/forever.ts --ingest                     # ~19k items into forever/catalog/
+bun run src/forever.ts --item 12640 --pretty        # Lionheart Helm, computed stats
+bun run src/forever.ts --search "Lionheart" --pretty
+bun run src/forever.ts --list-instances --pretty
+bun run src/forever.ts --loot "The Deadmines" --pretty
+bun run src/forever.ts --audit-loot --pretty        # loot rows vs. the live build
+```
+
 ### Account profile (protected)
 ```bash
 # First get an authorization code token
@@ -239,8 +265,13 @@ Requires authorization code token: `./run src/oauth.ts --profile`
 - **gear-upgrades** — Gear analysis and dungeon upgrade finder (gear-check, dungeon-loot, upgrades tools)
 - **recipe-shopping** — Recipe reagent resolution and AH shopping lists (recipe-reagents, recipe-shopping tools)
 
+## Related docs
+
+- `docs/forever-data.md` — the Forever data path (build resolution, computed stats, loot provenance)
+
 ## Important
 
 - Credentials are handled by the `./run` wrapper — never access `~/.vault-tokens/` or print environment variables
 - Output is JSON — use `jq` for filtering
 - Run from the `/Users/mhadley/Dev/wow-data` directory
+- `forever.ts` is the exception: run it with `bun run`, it takes no credentials and never calls the Blizzard API
