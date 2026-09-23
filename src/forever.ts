@@ -78,23 +78,23 @@ function allSources(loot: LootExtract | null, wowtbc: WowtbcExtract | null, id: 
 /** A wowtbc dungeon with every item id named (build first, gap item second). */
 function namedDungeon(d: WowtbcDungeon, catalog: ForeverCatalog | null, wowtbc: WowtbcExtract) {
   const byId = catalog ? new Map(catalog.items.map((i) => [i.id, i])) : null;
-  const name = (id: number) => {
+  const name = (id: number, kind: "drop" | "quest") => {
     const item = wowtbc.items[String(id)];
     return {
       item_id: id,
       ...resolveItemName(id, byId, wowtbc),
       discovered: item?.provenance.discovered ?? null,
       content: item?.content ?? null,
-      // Vanilla-observed; null for new content by construction.
-      vanilla_drop_chance: item?.vanilla_drop_chance ?? null,
+      // Vanilla-observed; null for new content by construction, and a quest reward never carries one.
+      vanilla_drop_chance: kind === "quest" ? null : item?.vanilla_drop_chance ?? null,
     };
   };
   return {
     ...d,
     source: wowtbc.meta.source,
-    bosses: Object.fromEntries(Object.entries(d.bosses).map(([boss, b]) => [boss, b.item_ids.map(name)])),
-    trash: d.trash ? d.trash.item_ids.map(name) : null,
-    quests: d.quests.map((q) => ({ ...q, items: q.item_ids.map(name) })),
+    bosses: Object.fromEntries(Object.entries(d.bosses).map(([boss, b]) => [boss, b.item_ids.map((id) => name(id, "drop"))])),
+    trash: d.trash ? d.trash.item_ids.map((id) => name(id, "drop")) : null,
+    quests: d.quests.map((q) => ({ ...q, items: q.item_ids.map((id) => name(id, "quest")) })),
   };
 }
 
@@ -298,7 +298,10 @@ try {
         wowtbc: dungeon && wowtbc
           ? namedDungeon(dungeon, catalog, wowtbc)
           : wowtbc
-            ? null
+            ? {
+                unknown:
+                  "out of wowtbc scope: its tables cover dungeons only (no raids or world bosses), and it lists no dungeon matching this instance",
+              }
             : { unknown: WOWTBC_MISSING },
       },
       pretty,

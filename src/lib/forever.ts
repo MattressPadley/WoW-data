@@ -1041,8 +1041,9 @@ export interface ForeverItemView {
   name: string;
   /** Icon file name, no path or extension. The consumer composes the URL. */
   icon?: string;
-  item_level: number;
-  required_level: number;
+  /** Always a number for build rows; null only on a gap item whose upstream row gives none. */
+  item_level: number | null;
+  required_level: number | null;
   quality?: string;
   inventory_type?: string;
   item_class?: string;
@@ -1084,6 +1085,10 @@ export interface ForeverViewDropSource {
   /** Boss or quest name; absent for trash. */
   name?: string;
   source: typeof WOWTBC_SOURCE;
+  /** Upstream's `discovered` flag for the item, tri-state: `null` = upstream did not say. */
+  discovered: boolean | null;
+  /** When the dungeon page this source came from was fetched. */
+  fetched_at: string;
 }
 
 export interface ForeverItemsView {
@@ -1122,16 +1127,25 @@ function present<K extends string, V>(key: K, value: V | null | undefined): Part
 function viewDropSources(wowtbc: WowtbcExtract | null, id: number): ForeverViewDropSource[] | null {
   const sources = wowtbc?.items[String(id)]?.sources;
   if (!sources || sources.length === 0) return null;
-  return sources.map((s) => ({ dungeon: s.dungeon, kind: s.kind, ...present("name", s.name), source: WOWTBC_SOURCE }));
+  const item = wowtbc!.items[String(id)]!;
+  return sources.map((s) => ({
+    dungeon: s.dungeon,
+    kind: s.kind,
+    ...present("name", s.name),
+    source: WOWTBC_SOURCE,
+    discovered: item.provenance.discovered,
+    // Per source, not per item: an item listed in two dungeons came from two pages.
+    fetched_at: wowtbc!.dungeons[s.dungeon_key]?.fetched_at ?? item.provenance.fetched_at,
+  }));
 }
 
 function projectGapItem(gap: ForeverGapItem, wowtbc: WowtbcExtract): ForeverItemView {
   return {
     id: gap.id,
     name: gap.name,
-    // The view's ilvl/level are required numbers; 0 is how the build writes "none".
-    item_level: gap.item_level ?? 0,
-    required_level: gap.required_level ?? 0,
+    // Unknown upstream stays null — a 0 would read as a real value.
+    item_level: gap.item_level,
+    required_level: gap.required_level,
     ...present("icon", gap.icon),
     ...present("quality", gap.quality),
     ...present("inventory_type", gap.inventory_type),

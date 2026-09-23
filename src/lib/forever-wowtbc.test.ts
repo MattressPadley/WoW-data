@@ -208,7 +208,41 @@ describe("items view with wowtbc", () => {
   test("build rows keep build data and gain only a stamped drop source", () => {
     const row = view.items.find((i) => i.id === 872)!;
     expect(row).not.toHaveProperty("data_source");
-    expect(row.drop_sources).toEqual([{ dungeon: "The Deadmines", kind: "boss", name: "Rhahk'Zor", source: WOWTBC_SOURCE }]);
+    // Every stamped source carries all three provenance fields, not just `source`.
+    expect(row.drop_sources).toEqual([{
+      dungeon: "The Deadmines", kind: "boss", name: "Rhahk'Zor", source: WOWTBC_SOURCE,
+      discovered: true, fetched_at: "2026-09-23T00:00:01.000Z",
+    }]);
+  });
+
+  test("a missing upstream discovered flag stays null on view sources", () => {
+    const row = view.items.find((i) => i.id === 10400)!;
+    expect(row.drop_sources![0]!.discovered).toBeNull();
+    expect(row.drop_sources![0]!.fetched_at).toBe("2026-09-23T00:00:01.000Z");
+  });
+
+  test("an unknown upstream item level is null, never 0", () => {
+    // 279894 has an ilvl but no min_level upstream.
+    const row = view.items.find((i) => i.id === 279894)!;
+    expect(row.item_level).toBe(16);
+    expect(row.required_level).toBeNull();
+  });
+});
+
+describe("an item listed in more than one dungeon", () => {
+  // 872 appears first in a reused dungeon (with a drop chance), then in a new one.
+  const newDungeon: DungeonPage = {
+    ...hallOfThanes,
+    link: { ...hallOfThanes.link, name: "New Place", path: "/warcraftforever/loot-tables/dungeons/new-place/" },
+    gear: [{ id: 872, name: "Rockslicer", rarity: "rare", ilvl: 23, drop_chance: 0.1 }],
+    loot: [{ dungeon: "New Place", bosses: [{ name: "Someone", items: [872] }] }],
+  };
+  const merged = buildExtract([deadmines, newDungeon], new Set(), wago, "1.60.1.1", "now");
+
+  test("is new if any listing says so, and loses its Vanilla drop chance", () => {
+    expect(merged.items["872"]!.content).toBe("forever-new");
+    expect(merged.items["872"]!.vanilla_drop_chance).toBeNull();
+    expect(merged.items["872"]!.sources.map((s) => s.dungeon_key)).toEqual(["the-deadmines", "new-place"]);
   });
 });
 

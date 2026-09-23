@@ -231,12 +231,15 @@ far down you are. Name search, quality and slot facets, the sort column and the 
 column all persist through `savedState`.
 
 **Drop sources are shown only with provenance.** After `--ingest-wowtbc`, a row carries
-`drop_sources` (boss / trash / quest, each with `source: wowtbc-warcraftforever`) when the
-datamined tables have one; a row without a source carries no field at all, and `meta` carries the
+`drop_sources` (boss / trash / quest, each stamped with `source: wowtbc-warcraftforever`,
+upstream's `discovered` flag and the source page's `fetched_at`) when the datamined tables have
+one; a row without a source carries no field at all, and `meta` carries the
 sentence saying what that absence means — the widget renders it verbatim in the footer and in the
 tooltip of every source-less item. Gap items (no `ItemSparse` row) join the view with
 `data_source: wowtbc-warcraftforever`, their `discovered` flag, and raw `upstream_stats` — never
-`stats`, which means build-computed. `meta.gap_item_count` says how many.
+`stats`, which means build-computed. A gap item whose upstream row gives no item level or
+required level carries `null` there, never `0` (upstream omits `ilvl` on most rows).
+`meta.gap_item_count` says how many.
 
 ### Icon art comes from a third-party CDN
 
@@ -349,11 +352,15 @@ fetched_at }`:
   drop.
 
 **Drop chances are Vanilla-observed.** Upstream's `drop_chance` appears only on reused-Vanilla
-items; it is carried as `vanilla_drop_chance` and **only when `content` is `vanilla`**. An item is
+items; it is carried as `vanilla_drop_chance` and **only when `content` is `vanilla`**. An item
+listed in several dungeons is `forever-new` if *any* listing makes it so, and then loses its
+drop chance. An item is
 `forever-new` if its dungeon is new, upstream flags it in a quest's `new` list, or its id is at or
 above `FOREVER_NEW_ITEM_ID_FLOOR` (250000 — the ingest notes any upstream-new id below it). New
 items in reused dungeons (e.g. 273289 Ogre Loincloth ← Rhahk'Zor) therefore never show a rate, and
-a quest reward never carries one.
+a quest reward never carries one — on `--loot`, `--item-sources` and `--item` alike. `--loot` on
+an instance wowtbc does not cover (raids, world bosses) says so under `wowtbc.unknown` rather
+than returning a bare `null`.
 
 ### Counts (build `1.60.1.69977`, fetched 2026-09-23)
 

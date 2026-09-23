@@ -558,7 +558,13 @@ export function buildExtract(
       const itemSources = sources.get(raw.id) ?? [];
       const existing = items[String(raw.id)];
       if (existing) {
-        // Seen in an earlier dungeon: merge sources, keep the first row's fields.
+        // Seen in an earlier dungeon: merge sources, keep the first row's fields —
+        // except the content class, which is new if *any* listing says so. A later
+        // new-dungeon listing must still strip a Vanilla drop chance.
+        if (existing.content === "vanilla" && classifyContent(raw.id, dungeon.is_new, flaggedNew.has(raw.id)) === "forever-new") {
+          existing.content = "forever-new";
+          existing.vanilla_drop_chance = null;
+        }
         for (const s of itemSources) {
           if (!existing.sources.some((e) => e.dungeon_key === s.dungeon_key && e.kind === s.kind && e.name === s.name)) {
             existing.sources.push(s);

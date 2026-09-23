@@ -43,8 +43,9 @@ interface ForeverItemEffect {
 interface ForeverItem {
   id: number;
   name: string;
-  item_level: number;
-  required_level: number;
+  /** Null only on a datamined gap item upstream gives no value for. */
+  item_level: number | null;
+  required_level: number | null;
   icon?: string;
   quality?: string;
   inventory_type?: string;
@@ -67,7 +68,14 @@ interface ForeverItem {
   /** Gap items only: upstream's stat blocks, raw — never build-computed. */
   upstream_stats?: Record<string, Record<string, number | string>>;
   /** Drop/quest sources, each stamped with where it came from. Absent = none known. */
-  drop_sources?: { dungeon: string; kind: "boss" | "trash" | "quest"; name?: string; source: string }[];
+  drop_sources?: {
+    dungeon: string;
+    kind: "boss" | "trash" | "quest";
+    name?: string;
+    source: string;
+    discovered: boolean | null;
+    fetched_at: string;
+  }[];
 }
 
 interface ViewMeta {
@@ -199,7 +207,7 @@ function ForeverItemTooltip({ item, dropSourceNote }: { item: ForeverItem; dropS
         </div>
       )}
 
-      {item.required_level > 0 && <TooltipLine top={4}>Requires Level {item.required_level}</TooltipLine>}
+      {(item.required_level ?? 0) > 0 && <TooltipLine top={4}>Requires Level {item.required_level}</TooltipLine>}
       {item.allowable_classes && <TooltipLine>Classes: {item.allowable_classes.join(", ")}</TooltipLine>}
       {item.allowable_races && <TooltipLine>Races: {item.allowable_races.join(", ")}</TooltipLine>}
 
