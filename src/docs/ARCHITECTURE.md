@@ -16,16 +16,31 @@
 ```
 1. Vault AppRole (via ./run wrapper)
    ├── VAULT_ROLE_ID + VAULT_SECRET_ID → Vault login
-   └── Fetches kv/data/wow/api → access_token, client_id, client_secret
+   └── Fetches kv/data/wow/api → client_id, client_secret (+ optional access_token)
 
 2. Environment Variables (fallback)
-   ├── BNET_ACCESS_TOKEN
    ├── BNET_CLIENT_ID
-   └── BNET_CLIENT_SECRET
+   ├── BNET_CLIENT_SECRET
+   └── BNET_ACCESS_TOKEN (optional)
 
 3. macOS Keychain (token only, last resort)
    └── security find-generic-password -s wow-api-bnet -a bnet
 ```
+
+## Access Tokens
+
+Tokens are **derived, not stored**. `getAccessToken()` in `src/connection.ts` mints one
+on demand from `client_id`/`client_secret` via the OAuth client-credentials grant
+(`POST https://oauth.battle.net/token`; `www.battlenet.com.cn/oauth/token` for `cn`) and
+caches it in memory, per region, for the process lifetime. Concurrent mints are collapsed
+into a single request.
+
+A pre-stored `access_token` is only a fallback for when minting is impossible. `makeRequest`
+retries once on `401` with a forced re-mint, so an expired token self-heals.
+
+The exception is user-scoped `/profile/user/...`, which needs an authorization-code token
+with the `wow.profile` scope. Those calls request the stored token explicitly and fail with
+a pointer to `./run src/oauth.ts --profile` rather than a bare 401.
 
 The `./run` bash wrapper reads `~/.vault-tokens/wow-api` and injects the Vault role/secret IDs into the child process environment. This keeps secrets out of the codebase and invisible to Claude Code agents (enforced by `.claude/settings.json` deny rules).
 

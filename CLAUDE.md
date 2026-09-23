@@ -9,7 +9,7 @@ Use the `wow-api` skill before interacting with any Blizzard API tools. It conta
 ## Shared code
 
 - `src/api.ts` — `WoWAPI` class with all Blizzard API methods
-- `src/connection.ts` — Vault → env → Keychain credential chain
+- `src/connection.ts` — Vault → env → Keychain credential chain; mints OAuth access tokens on demand (see `docs/credentials.md`)
 - `src/utils.ts` — Flag parsing and output helpers
 - `src/lib/wago.ts` — wago.tools DB2 CSV fetch/parse, keyed by product and build
 - `src/lib/forever.ts` — WoW Forever data (see `docs/forever-data.md`)
@@ -21,6 +21,7 @@ Tool output is raw JSON. When presenting results to the user, format them into r
 ## Important constraints
 
 - **Credentials**: Vault (AppRole via `./run` wrapper) → env vars → macOS Keychain. Agents must never access `~/.vault-tokens/` or Vault directly.
+- **Tokens**: game-data access tokens are minted on demand from `client_id`/`client_secret` and cached in memory — never manually refreshed. Only user-scoped `/profile/user/...` (`src/account.ts`) needs `./run src/oauth.ts --profile`. Never print tokens or secrets.
 - All output is JSON. Pipe to `jq` for filtering.
 - **Forever**: always "Forever", never "Classic". The Forever path takes no credentials and must
   never construct `WoWAPI` or import `src/lib/dungeon-loot.ts` — the Blizzard API is dark for its

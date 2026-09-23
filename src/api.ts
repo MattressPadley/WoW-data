@@ -1,4 +1,4 @@
-import { getCredentials } from "./connection.ts";
+import { getAccessToken } from "./connection.ts";
 
 // Global rate limiter — Blizzard allows 100 req/s, we target ~50 req/s for safety
 const RATE_LIMIT_INTERVAL_MS = 20; // 50 req/s
@@ -17,29 +17,47 @@ async function rateLimitWait(): Promise<void> {
 }
 
 export class WoWAPI {
-  private accessToken: string;
   private region: string;
   private baseUrl: string;
 
   constructor(region = "us") {
-    const creds = getCredentials();
-    this.accessToken = creds.accessToken;
     this.region = region;
     this.baseUrl = `https://${region}.api.blizzard.com`;
   }
 
-  private async makeRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
+  private async makeRequest(
+    endpoint: string,
+    params: Record<string, string> = {},
+    opts: { userToken?: boolean } = {}
+  ): Promise<any> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     for (const [k, v] of Object.entries(params)) {
       url.searchParams.set(k, v);
     }
 
+    // A 401 means the token lapsed mid-flight; re-mint once and retry.
+    let reauthed = false;
+
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       await rateLimitWait();
 
+      const token = await getAccessToken({ region: this.region, preferStored: opts.userToken });
       const response = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (response.status === 401 && opts.userToken) {
+        // Re-minting can't help: this needs an authorization-code token.
+        throw new Error(
+          "API request failed: 401 Unauthorized — the stored user token is expired. Run: ./run src/oauth.ts --profile"
+        );
+      }
+
+      if (response.status === 401 && !reauthed) {
+        reauthed = true;
+        await getAccessToken({ region: this.region, forceRefresh: true });
+        continue;
+      }
 
       if (response.status === 429) {
         if (attempt < MAX_RETRIES) {
@@ -54,6 +72,8 @@ export class WoWAPI {
       }
       return response.json();
     }
+
+    throw new Error(`API request failed: exhausted ${MAX_RETRIES} retries for ${endpoint}`);
   }
 
   private ns(type: "static" | "dynamic" | "profile" = "static") {
@@ -66,6 +86,15 @@ export class WoWAPI {
 
   private getData(endpoint: string, namespace?: string, locale = "en_US", extra: Record<string, string> = {}): Promise<any> {
     return this.makeRequest(endpoint, { namespace: namespace ?? this.ns(), locale, ...extra });
+  }
+
+  /** User-scoped request — uses the stored authorization-code token, never a minted one. */
+  private getUserData(endpoint: string, locale = "en_US"): Promise<any> {
+    return this.makeRequest(
+      endpoint,
+      { namespace: this.ns("profile"), locale },
+      { userToken: true }
+    );
   }
 
   // Auction House
@@ -771,12 +800,12 @@ export class WoWAPI {
     return this.getData(`${this.charPath(realm, name)}/titles`, this.ns("profile"));
   }
 
-  // Account Profile (protected — requires authorization code token)
+  // Account Profile (protected — requires an authorization-code token, not client credentials)
   getAccountProfile() {
-    return this.getData("/profile/user/wow", this.ns("profile"));
+    return this.getUserData("/profile/user/wow");
   }
 
   getProtectedCharacter(realmId: number, characterId: number) {
-    return this.getData(`/profile/user/wow/protected-character/${realmId}-${characterId}`, this.ns("profile"));
+    return this.getUserData(`/profile/user/wow/protected-character/${realmId}-${characterId}`);
   }
 }
