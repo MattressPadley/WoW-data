@@ -1,0 +1,263 @@
+name: Midnight Season 2
+slug: midnight-s2
+expansion: Midnight
+patch: "12.1"
+
+tracks:
+  adventurer:
+    min_ilvl: 266
+    max_ilvl: 282
+    ranks: 6
+    crest: Adventurer Mistcrest
+    sources:
+      - Outdoor Events
+      - Delves Tiers 1-4
+      # TODO(S2): unconfirmed — Normal Prey Hunts / Normal Seasonal Dungeons track placement
+  veteran:
+    min_ilvl: 279
+    max_ilvl: 295
+    ranks: 6
+    crest: Veteran Mistcrest
+    sources:
+      - Raid Finder
+      - Delves Tiers 5-6
+      # TODO(S2): unconfirmed — Heroic Seasonal Dungeons, Hard Prey Hunts, Trovehunter's Bounty tiers
+  champion:
+    min_ilvl: 292
+    max_ilvl: 308
+    ranks: 6
+    crest: Champion Mistcrest
+    sources:
+      - Normal Raid
+      - Mythic +2-3 Dungeons
+      - Mythic Seasonal Dungeons
+      - Delves Tiers 7-8
+      # TODO(S2): unconfirmed — Nightmare Prey Hunts, Trovehunter's Bounty tiers
+  hero:
+    min_ilvl: 305
+    max_ilvl: 321
+    ranks: 6
+    crest: Hero Mistcrest
+    sources:
+      - Heroic Raid
+      - Mythic +4-8 Dungeons
+      - Heroic Great Vault
+      # TODO(S2): unconfirmed — Delves Tier 9-11 rewards
+  myth:
+    min_ilvl: 318
+    max_ilvl: 334
+    ranks: 6
+    crest: Myth Mistcrest
+    sources:
+      - Mythic Raid
+      - Mythic +9 and Higher
+      - Mythic Great Vault
+
+# Crafted with Spark of Tides: base 305, Hero-crest path 318, Myth-crest path 331.
+# TODO(S2): unconfirmed — Spark of Tides cadence / per-craft cost
+crafted:
+  # TODO(S2): unconfirmed — rare crafted ilvl range (omitted)
+  epic:
+    min_ilvl: 305
+    max_ilvl: 331
+
+# Crest acquisition sources (drives the seasonal-info crest legend panel).
+# Independent from track.sources because some activities award a crest tier
+# different from the gear ilvl tier they drop.
+# Mistcrests: 20 per upgrade rank, 100 weekly cap.
+crest_sources:
+  Myth Mistcrest:
+    - Mythic +9 and Higher
+    - Mythic Raid Bosses
+  Hero Mistcrest:
+    - Mythic +4-8 Dungeons
+    - Heroic Raid Bosses
+    # TODO(S2): unconfirmed — Delve / Trovehunter's Bounty Hero crest sources
+  Champion Mistcrest:
+    - Mythic +2-3 Dungeons
+    - Mythic Seasonal Dungeons
+    - Normal Raid Bosses
+    # TODO(S2): unconfirmed — Nightmare Prey Hunts, Delve / Trovehunter's Bounty tiers
+  Veteran Mistcrest:
+    - Raid Finder Bosses
+    # TODO(S2): unconfirmed — Heroic Seasonal Dungeons, Hard Prey Hunts, Delve / Trovehunter's Bounty tiers
+  Adventurer Mistcrest:
+    - Outdoor Events
+    # TODO(S2): unconfirmed — Normal Prey Hunts, Delve tiers
+
+track_ranks:
+  adventurer: [266, 269, 272, 276, 279, 282]
+  veteran:    [279, 282, 285, 289, 292, 295]
+  champion:   [292, 295, 298, 302, 305, 308]
+  hero:       [305, 308, 311, 315, 318, 321]
+  myth:       [318, 321, 324, 328, 331, 334]
+
+# Above-cap: ilvl 344 Very Rare drops from the final two Mythic bosses
+# (The Coiled Altar, Ula'tek) only. Not on a track — cannot be upgraded.
+# Ascendant Venomstone Boost: upgrades neck / weapon / trinket to 334
+# (10 Venomstones each).
+# TODO(S2): unconfirmed — Nebulous Voidcore Bonus Roll mechanic + ilvl
+# TODO(S2): unconfirmed — Venom-Cursed Fragments mechanic + ilvl
+# TODO(S2): unconfirmed — PvP Honor / Conquest ilvls + upgrade ceiling
+
+# Raid: The Venomous Abyss (journal instance 1320), 8 bosses.
+# Drop / vault: LFR 279-285 / 292, Normal 292-298 / 305,
+#               Heroic 305-311 / 318, Mythic 318-324 / 334.
+# Lair: The Tidebound Grotto (journal instance 1317), boss Nymrissa Wavecaller.
+# TODO(S2): unconfirmed — Tidebound Grotto per-difficulty loot ilvls
+raid_difficulty_track:
+  lfr: veteran
+  normal: champion
+  heroic: hero
+  mythic: myth
+
+# Boss position in encounter list -> starting rank (1-indexed)
+# Drops span ranks 1-3 of the difficulty's track (e.g. Heroic 305-311).
+# Positions follow Blizzard journal encounter order: Nek'zali, Entombed
+# Sentinels, The Lost Explorers, Vashnik, Sszorak, The Twin Fangs,
+# The Coiled Altar, Ula'tek.
+# TODO(S2): unconfirmed — per-boss rank step; only the rank 1-3 range is sourced
+boss_rank_rules:
+  - positions: [1, 2, 3]
+    rank: 1
+  - positions: [4, 5, 6]
+    rank: 2
+  - positions: [7, 8, 9, 10]
+    rank: 3
+
+crest_suffix: Mistcrest
+
+# Tier token prefix → armor type (for class-filtered loot)
+# Prefixes taken from The Venomous Abyss journal loot (Venom*-{Effigy,Icon,Idol,Relic,Remnant}).
+# TODO(S2): unconfirmed — armor mapping assumed from S1 forged/cast/cured/woven convention
+tier_token_prefixes:
+  Venomforged: Plate
+  Venomcast: Mail
+  Venomcured: Leather
+  Venomwoven: Cloth
+
+# M+ keystone rotation (journal instance IDs) — 8 dungeons per season
+# min_item_id: filters out legacy loot pool items below this ID (old expansions only)
+# TODO(S2): unconfirmed — min_item_id thresholds for legacy dungeons
+keystone_dungeons:
+  - { id: 1322, name: "Altar of Fangs" }              # Midnight
+  - { id: 1304, name: "Murder Row" }                  # Midnight
+  - { id: 1311, name: "Den of Nalorakk" }             # Midnight
+  - { id: 1309, name: "The Blinding Vale" }           # Midnight
+  - { id: 1313, name: "Voidscar Arena" }              # Midnight
+  - { id: 1041, name: "Kings' Rest" }                 # BfA
+  - { id: 1030, name: "Temple of Sethraliss" }        # BfA
+  - { id: 1202, name: "Ruby Life Pools" }             # Dragonflight
+
+# --- Dungeon & M+ loot tables ---
+
+dungeon_difficulty_track:
+  # TODO(S2): unconfirmed — Heroic dungeon track/rank (omitted)
+  mythic: { track: champion, rank: 1 }       # ilvl 292 (M0)
+
+# End-of-dungeon Challenger's Cache ilvl (caps at +10)
+mythic_plus_end_of_dungeon:
+  - key_range: [2, 3]
+    track: champion
+    rank: 2                                   # ilvl 295
+  - key_range: [4, 4]
+    track: champion
+    rank: 3                                   # ilvl 298
+  - key_range: [5, 5]
+    track: champion
+    rank: 4                                   # ilvl 302
+  - key_range: [6, 7]
+    track: hero
+    rank: 1                                   # ilvl 305
+  - key_range: [8, 9]
+    track: hero
+    rank: 2                                   # ilvl 308
+  - key_range: [10, 99]
+    track: hero
+    rank: 3                                   # ilvl 311 (cap)
+
+# Great Vault reward ilvl (caps at +8)
+# TODO(S2): unconfirmed — M0 vault ilvl (key_range [0, 0] omitted)
+mythic_plus_vault:
+  - key_range: [2, 3]
+    track: hero
+    rank: 1                                   # ilvl 305
+  - key_range: [4, 4]
+    track: hero
+    rank: 2                                   # ilvl 308
+  - key_range: [5, 5]
+    track: hero
+    rank: 3                                   # ilvl 311
+  - key_range: [6, 7]
+    track: hero
+    rank: 4                                   # ilvl 315
+  - key_range: [8, 99]
+    track: myth
+    rank: 1                                   # ilvl 318
+
+# Crest type earned at each key level range
+mythic_plus_crests:
+  - key_range: [2, 3]
+    crest: champion
+  - key_range: [4, 8]
+    crest: hero
+  - key_range: [9, 99]
+    crest: myth
+
+# --- Delve reward tables ---
+# TODO(S2): unconfirmed — Trovehunter's Bounty tier -> ilvl ladder
+# TODO(S2): unconfirmed — Prey Hunt (Normal/Hard/Nightmare) drop + vault ilvls
+
+# End-of-delve reward ilvl by bountiful tier (caps at tier 8)
+delve_end_of_run:
+  - key_range: [1, 1]
+    track: adventurer
+    rank: 1                                   # ilvl 266
+  - key_range: [2, 2]
+    track: adventurer
+    rank: 2                                   # ilvl 269
+  - key_range: [3, 3]
+    track: adventurer
+    rank: 3                                   # ilvl 272
+  - key_range: [4, 4]
+    track: adventurer
+    rank: 4                                   # ilvl 276
+  - key_range: [5, 5]
+    track: veteran
+    rank: 1                                   # ilvl 279
+  - key_range: [6, 6]
+    track: veteran
+    rank: 2                                   # ilvl 282
+  - key_range: [7, 7]
+    track: champion
+    rank: 1                                   # ilvl 292
+  - key_range: [8, 11]
+    track: champion
+    rank: 2                                   # ilvl 295 (cap)
+
+# Great Vault reward ilvl from delves (based on highest tier completed)
+delve_vault:
+  - key_range: [1, 1]
+    track: veteran
+    rank: 1                                   # ilvl 279
+  - key_range: [2, 2]
+    track: veteran
+    rank: 2                                   # ilvl 282
+  - key_range: [3, 3]
+    track: veteran
+    rank: 3                                   # ilvl 285
+  - key_range: [4, 4]
+    track: veteran
+    rank: 4                                   # ilvl 289
+  - key_range: [5, 5]
+    track: champion
+    rank: 1                                   # ilvl 292
+  - key_range: [6, 6]
+    track: champion
+    rank: 3                                   # ilvl 298
+  - key_range: [7, 7]
+    track: champion
+    rank: 4                                   # ilvl 302
+  - key_range: [8, 11]
+    track: hero
+    rank: 1                                   # ilvl 305
